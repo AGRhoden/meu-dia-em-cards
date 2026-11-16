@@ -549,7 +549,19 @@ function renderAccount(){
   w.innerHTML=`<span class="menuwrap"><button class="ghost person-chip" data-a="acctmenu" aria-haspopup="menu" aria-expanded="${!!V.acct}" aria-label="${esc(p.name)}, menu da conta">${chip}</button>
     ${V.acct?`<div class="menu" role="menu"><span class="who">${esc(p.name)}</span><small>${esc(u.email||'Conta Google')}</small><button role="menuitem" data-a="tab" data-v="pessoas">Pessoas e família</button><button role="menuitem" data-a="gsignout">Sair da conta</button></div>`:''}</span>`;
 }
+/* Sem conta, o app não abre: só a tela de entrada. (S.cloudUser marca o aparelho já ligado a uma conta, então o diário segue abrindo sem internet.) */
+const gated=()=>!!sb&&!S.cloudUser;
+function viewEntrar(){
+  const back=/[?&]code=/.test(location.search);
+  return `<section class="gate"><h2 class="title">Bem-vindo</h2>
+    <p class="sub">Um diário para guardar, a cada dia, as graças recebidas. Entre com sua conta Google para abrir o seu.</p>
+    ${back?'<p class="sub" role="status">Entrando…</p>':'<button class="btn" data-a="gsignin">Entrar com Google</button>'}
+    <p class="sub" id="cloudline" role="status" aria-live="polite">${esc(C.msg)}</p>
+    <p class="sub small">Seus dias ficam guardados na sua conta e só você e a sua família podem vê-los.</p></section>`;
+}
 function render(keepFocus){
+  const g=gated();document.body.classList.toggle('gated',g);
+  if(g){$app.innerHTML=viewEntrar();return}
   renderAccount();
   const away=V.tab==='hoje'&&V.date!==todayIso();
   document.querySelectorAll('nav.tabs button').forEach(b=>{
@@ -945,5 +957,7 @@ document.addEventListener('keydown',e=>{
 });
 render();
 applyBar();
+// se a volta do Google falhar, a tela de entrada reaparece com o botão
+if(/[?&]code=/.test(location.search))setTimeout(()=>{if(gated()){history.replaceState(null,'',location.pathname);render()}},10000);
 document.getElementById('baredit').innerHTML=ICON.image;
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
