@@ -51,6 +51,10 @@ header.top{max-width:1000px;margin:0 auto;padding:18px clamp(20px,4vw,40px) 0}
 .brand i{font-family:var(--serif);font-weight:400;font-size:.6em;margin-left:2px;opacity:.92}
 .brand svg{width:.62em;height:.8em;flex:none}
 .tools{display:flex;gap:4px;align-items:center}
+#acctwrap{display:flex;gap:4px;align-items:center}
+.menu .who{display:block;padding:8px 12px 6px;font-size:.95rem;font-weight:600;color:var(--ink)}
+.menu .who+small{padding-top:0;padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:4px;border-radius:0}
+.menu button{color:var(--ink)}
 .ghost{border:0;background:transparent;color:var(--muted);cursor:pointer;min-width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;font-size:.88rem;transition:background .15s,color .15s}
 .ghost:hover{background:var(--wash);color:var(--ink)}
 .person-chip{color:var(--ink)}
@@ -260,7 +264,6 @@ h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6p
       <div class="tools">
         <button class="ghost" data-a="font" data-v="-1" aria-label="Diminuir letras" title="Diminuir letras" style="font-size:.8rem;font-weight:600">A−</button>
         <button class="ghost" data-a="font" data-v="1" aria-label="Aumentar letras" title="Aumentar letras" style="font-size:1rem;font-weight:600">A+</button>
-        <button class="ghost person-chip" data-a="tab" data-v="pessoas" id="whoami" aria-label="Pessoa atual (abrir Pessoas)"></button>
         <span id="acctwrap"></span>
         <button class="ghost" data-a="baredit" id="baredit" aria-label="Personalizar a barra" title="Personalizar a barra"></button>
       </div>
@@ -421,11 +424,12 @@ const hhmm=()=>{const n=new Date();return pad(n.getHours())+':'+pad(n.getMinutes
 function markAllDirty(){
   S.profiles.forEach(p=>{if(!p.remote)S.dirty['p:'+p.id]=1});
   Object.keys(S.days).forEach(pid=>{const p=S.profiles.find(x=>x.id===pid);if(p&&!p.remote)Object.keys(S.days[pid]).forEach(d=>{S.dirty['e:'+pid+'|'+d]=1})});
+  if(S.bar&&(S.bar.color||S.bar.cover))S.dirty['bar:1']=1;
   allPhotos().then(l=>{l.forEach(f=>{if(!f.synced)S.dirty['ph:'+f.id]=1});save()}).catch(()=>{});
 }
 
 async function pushDirty(){
-  const order=k=>({p:0,e:1,ph:2,phd:3,pd:4})[k.slice(0,k.indexOf(':'))];
+  const order=k=>({p:0,e:1,ph:2,phd:3,pd:4,bar:5})[k.slice(0,k.indexOf(':'))];
   const keys=Object.keys(S.dirty).sort((a,b)=>order(a)-order(b));
   for(const k of keys){
     const t=k.slice(0,k.indexOf(':')),rest=k.slice(k.indexOf(':')+1);
@@ -454,6 +458,11 @@ async function pushDirty(){
       const [pid,id]=rest.split('|');
       const r1=await sb.storage.from('photos').remove([`${pid}/${id}.jpg`]);if(r1.error)throw r1.error;
       const r2=await sb.from('photos').delete().eq('id',id);if(r2.error)throw r2.error;
+    }else if(t==='bar'){
+      const b=S.bar||(S.bar={});if(!b.at)b.at=Date.now();
+      let cover=null,src=null;try{if(b.cover){cover=localStorage.getItem(BAR_KEY);if(b.hasSrc)src=localStorage.getItem(BAR_SRC)}}catch(e){}
+      const {error}=await sb.from('user_prefs').upsert({user_id:C.user.id,bar:{color:b.color||'verde',t:cover&&src?(b.t||null):null,at:b.at},cover,src,updated_at:new Date().toISOString()});
+      if(error)throw error;
     }else if(t==='pd'){
       const l=await sb.storage.from('photos').list(rest,{limit:1000});
       if(!l.error&&l.data&&l.data.length){await sb.storage.from('photos').remove(l.data.map(o=>`${rest}/${o.name}`))}
@@ -501,6 +510,21 @@ async function pullAll(){
   });
   ids.forEach(pid=>{const m=S.days[pid]||{};Object.keys(m).forEach(d=>{if(!have.has(pid+'|'+d)&&!S.dirty['e:'+pid+'|'+d])delete m[d]})});
   Object.keys(S.days).forEach(pid=>{if(!S.profiles.some(p=>p.id===pid))delete S.days[pid]});
+  // barra (cor e capa) da conta
+  try{
+    const r=await sb.from('user_prefs').select('bar,cover,src').maybeSingle();if(r.error)throw r.error;
+    const row=r.data,loc=S.bar||{},rat=row?(row.bar&&row.bar.at)||0:-1;
+    if(!S.dirty['bar:1']){
+      if(row&&rat>(loc.at||0)){
+        try{
+          if(row.cover){localStorage.setItem(BAR_KEY,row.cover);if(row.src)localStorage.setItem(BAR_SRC,row.src);else localStorage.removeItem(BAR_SRC)}
+          else{localStorage.removeItem(BAR_KEY);localStorage.removeItem(BAR_SRC)}
+          S.bar={color:row.bar.color||'verde',cover:!!row.cover,hasSrc:!!(row.cover&&row.src),t:row.bar.t||undefined,at:rat};
+        }catch(e){console.warn('barra: armazenamento cheio')}
+      }else if((loc.color||loc.cover)&&(!row||(loc.at||0)>rat))S.dirty['bar:1']=1;
+    }
+    applyBar();
+  }catch(e){console.warn('barra',e)}
   // fotos
   try{
     let prow=[];
@@ -544,6 +568,7 @@ async function afterLogin(user){
   if(S.cloudUser&&S.cloudUser!==user.id){
     if(!confirm('Este aparelho está ligado a outra conta Google. Entrar com esta conta troca os dados do aparelho pelos dela (os da outra conta continuam guardados na nuvem). Continuar?')){C.user=null;await sb.auth.signOut();return}
     try{await clearPhotos()}catch(e){}
+    try{localStorage.removeItem(BAR_KEY);localStorage.removeItem(BAR_SRC)}catch(e){}
     const id=uid();S={v:1,profiles:[{id,name:'Eu',color:COLORS[0],blank:true}],active:id,days:{},font:S.font||1,dirty:{}};
   }
   const gname=String((user.user_metadata&&(user.user_metadata.name||user.user_metadata.full_name))||'').trim().split(/\s+/)[0];
@@ -763,14 +788,16 @@ function cloudSection(){
 
 function renderAccount(){
   const w=document.getElementById('acctwrap');if(!w)return;
-  if(!sb){w.innerHTML='';return}
-  if(!C.user){w.innerHTML=`<button class="ghost acct-in" data-a="gsignin" title="Entrar com Google para sincronizar e compartilhar">Entrar</button>`;return}
-  const u=C.user,m=u.user_metadata||{},nm=m.name||m.full_name||u.email||'Conta';
-  w.innerHTML=`<span class="menuwrap"><button class="ghost" data-a="acctmenu" aria-haspopup="menu" aria-expanded="${!!V.acct}" aria-label="Conta ${esc(u.email||nm)}" title="${esc(u.email||nm)}"><span class="av sm" style="--rc:var(--ink);background:var(--ink);color:var(--bg)" aria-hidden="true">${esc(String(nm).trim().charAt(0).toUpperCase()||'?')}</span></button>
-    ${V.acct?`<div class="menu" role="menu"><small>${esc(u.email||'Conta Google')}</small><button role="menuitem" data-a="gsignout">Sair da conta</button></div>`:''}</span>`;
+  const p=me(),chip=`${avatar(p,'sm')}<span>${esc(p.name)}</span>`;
+  if(!sb||!C.user){
+    w.innerHTML=`<button class="ghost person-chip" data-a="tab" data-v="pessoas" aria-label="Pessoa atual: ${esc(p.name)} (abrir Pessoas)">${chip}</button>`+(sb?`<button class="ghost acct-in" data-a="gsignin" title="Entrar com Google para sincronizar e compartilhar">Entrar</button>`:'');
+    return;
+  }
+  const u=C.user;
+  w.innerHTML=`<span class="menuwrap"><button class="ghost person-chip" data-a="acctmenu" aria-haspopup="menu" aria-expanded="${!!V.acct}" aria-label="${esc(p.name)}, menu da conta">${chip}</button>
+    ${V.acct?`<div class="menu" role="menu"><span class="who">${esc(p.name)}</span><small>${esc(u.email||'Conta Google')}</small><button role="menuitem" data-a="tab" data-v="pessoas">Pessoas e família</button><button role="menuitem" data-a="gsignout">Sair da conta</button></div>`:''}</span>`;
 }
 function render(keepFocus){
-  document.getElementById('whoami').innerHTML=`${avatar(me(),'sm')}<span>${esc(me().name)}</span>`;
   renderAccount();
   const away=V.tab==='hoje'&&V.date!==todayIso();
   document.querySelectorAll('nav.tabs button').forEach(b=>{
@@ -974,7 +1001,7 @@ function barSave(){
       bar.cover=true;bar.t={z:M.z,px:M.px,py:M.py};
     }
   }catch(e){alert('Não foi possível guardar a imagem neste aparelho (armazenamento cheio).');return}
-  S.bar=bar;save();closeBar();live('Barra atualizada.');
+  bar.at=Date.now();S.bar=bar;S.dirty['bar:1']=1;save();closeBar();scheduleSync();live('Barra atualizada.');
 }
 const barPtrs=new Map();let barLast=0;
 document.addEventListener('pointerdown',e=>{const st=e.target.closest&&e.target.closest('#stage');if(!st||!M)return;try{st.setPointerCapture(e.pointerId)}catch(_){}barPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});barLast=0});
@@ -1095,7 +1122,7 @@ document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el||el.tagName==='INPUT')return;
   const a=el.dataset.a,v=el.dataset.v,c=V.cal;
   switch(a){
-    case 'tab':if(v==='hoje')goToday();else{if(v==='diario')V.dmonth=null;V.tab=v;render()}break;
+    case 'tab':V.acct=false;if(v==='hoje')goToday();else{if(v==='diario')V.dmonth=null;V.tab=v;render()}break;
     case 'acctmenu':V.acct=!V.acct;renderAccount();{const b=document.querySelector('[data-a=acctmenu]');b&&b.focus()}break;
     case 'avpick':V.avTarget=el.dataset.pid;document.getElementById('avin').click();break;
     case 'avdel':{const pp=S.profiles.find(x=>x.id===el.dataset.pid);if(pp&&!pp.remote){delete pp.avatar;S.dirty['p:'+pp.id]=1;save();scheduleSync();render(true);live('Foto removida.')}break}
