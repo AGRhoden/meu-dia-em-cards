@@ -118,7 +118,8 @@ if(!S.bk)S.bk={auto:true,week:'',last:''};
 const save=()=>{try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){alert('Não foi possível salvar neste aparelho (armazenamento cheio ou bloqueado).')}};
 const me=()=>S.profiles.find(p=>p.id===S.active)||S.profiles.find(p=>!p.remote)||S.profiles[0];
 const entryOf=(pid,iso)=>(S.days[pid]||{})[iso];
-const VERSION='1.1';
+const VERSION='1.2';
+const stamp=()=>Date.now()+Math.random();
 const hasContent=en=>!!en&&(['bom','descoberta','acao','acontecimento'].some(k=>(en[k]||'').trim())||((en.custom&&(en.custom.texto||'').trim())));
 
 /* ---------- Fotos: IndexedDB ---------- */
@@ -183,17 +184,19 @@ const cloudLine=()=>{const el=document.getElementById('cloudline');if(el){el.tex
 const hhmm=()=>{const n=new Date();return pad(n.getHours())+':'+pad(n.getMinutes())};
 
 function markAllDirty(){
-  S.profiles.forEach(p=>{if(!p.remote)S.dirty['p:'+p.id]=1});
-  Object.keys(S.days).forEach(pid=>{const p=S.profiles.find(x=>x.id===pid);if(p&&!p.remote)Object.keys(S.days[pid]).forEach(d=>{S.dirty['e:'+pid+'|'+d]=1})});
-  if(S.bar&&(S.bar.color||S.bar.cover))S.dirty['bar:1']=1;
-  allPhotos().then(l=>{l.forEach(f=>{if(!f.synced)S.dirty['ph:'+f.id]=1});save()}).catch(()=>{});
+  S.profiles.forEach(p=>{if(!p.remote)S.dirty['p:'+p.id]=stamp()});
+  Object.keys(S.days).forEach(pid=>{const p=S.profiles.find(x=>x.id===pid);if(p&&!p.remote)Object.keys(S.days[pid]).forEach(d=>{S.dirty['e:'+pid+'|'+d]=stamp()})});
+  if(S.bar&&(S.bar.color||S.bar.cover))S.dirty['bar:1']=stamp();
+  allPhotos().then(l=>{l.forEach(f=>{if(!f.synced)S.dirty['ph:'+f.id]=stamp()});save()}).catch(()=>{});
 }
 
 async function pushDirty(){
   const order=k=>({p:0,e:1,ph:2,phd:3,pd:4,bar:5})[k.slice(0,k.indexOf(':'))];
   const keys=Object.keys(S.dirty).sort((a,b)=>order(a)-order(b));
+  let firstErr=null;
   for(const k of keys){
-    const t=k.slice(0,k.indexOf(':')),rest=k.slice(k.indexOf(':')+1);
+    const t=k.slice(0,k.indexOf(':')),rest=k.slice(k.indexOf(':')+1),st=S.dirty[k];
+    try{
     if(t==='p'){
       const p=S.profiles.find(x=>x.id===rest);
       if(p&&!p.remote){const {error}=await sb.from('people').upsert({id:p.id,owner_id:C.user.id,name:p.name.slice(0,60),color:p.color,avatar:okAv(p.avatar)?p.avatar:null,family_id:C.family?C.family.id:null});if(error)throw error;p.synced=true;delete p.blank}
@@ -232,8 +235,11 @@ async function pushDirty(){
       if(!l.error&&l.data&&l.data.length){await sb.storage.from('photos').remove(l.data.map(o=>`${rest}/${o.name}`))}
       const {error}=await sb.from('people').delete().eq('id',rest);if(error)throw error;
     }
-    delete S.dirty[k];save();
+    if(S.dirty[k]===st)delete S.dirty[k];   // se mudou durante o envio, continua pendente
+    save();
+    }catch(e){firstErr=firstErr||e}
   }
+  if(firstErr)throw firstErr;
 }
 
 async function pullAll(){
@@ -249,22 +255,22 @@ async function pullAll(){
     if(!S.dirty['p:'+r.id]){if(okAv(r.avatar))p.avatar=r.avatar;else delete p.avatar}
   }
   // conta nova (sem pessoas na nuvem): sobe a pessoa inicial
-  if(!hasMine)S.profiles.forEach(p=>{if(!p.remote&&!p.synced)S.dirty['p:'+p.id]=1});
+  if(!hasMine)S.profiles.forEach(p=>{if(!p.remote&&!p.synced)S.dirty['p:'+p.id]=stamp()});
   // cores diferentes dentro da família
   const taken=new Set(S.profiles.filter(p=>p.remote).map(p=>p.color));
-  S.profiles.forEach(p=>{if(!p.remote&&taken.has(p.color)){const c=COLORS.find(c=>!S.profiles.some(q=>q.color===c));if(c){p.color=c;S.dirty['p:'+p.id]=1;setTimeout(scheduleSync,0)}}});
+  S.profiles.forEach(p=>{if(!p.remote&&taken.has(p.color)){const c=COLORS.find(c=>!S.profiles.some(q=>q.color===c));if(c){p.color=c;S.dirty['p:'+p.id]=stamp();setTimeout(scheduleSync,0)}}});
   // a pessoa inicial vazia some se a conta já tem pessoas na nuvem
   if(hasMine)S.profiles=S.profiles.filter(p=>!(p.blank&&!p.synced));
   // pessoas removidas em outro lugar (ou família deixada)
   S.profiles=S.profiles.filter(p=>!p.synced||remoteIds.has(p.id)||S.dirty['p:'+p.id]);
-  if(!S.profiles.some(p=>!p.remote)){const id=uid();S.profiles.push({id,name:'Eu',color:COLORS[0]});S.active=id;S.dirty['p:'+id]=1}
+  if(!S.profiles.some(p=>!p.remote)){const id=uid();S.profiles.push({id,name:'Eu',color:COLORS[0]});S.active=id;S.dirty['p:'+id]=stamp()}
   else{delete (S.profiles.find(p=>p.blank)||{}).blank}
   if(!S.profiles.some(p=>p.id===S.active&&!p.remote))S.active=S.profiles.find(p=>!p.remote).id;
   const ids=[...remoteIds];
   // dias
   let rows=[];
   if(ids.length)for(let from=0;;from+=1000){
-    const r=await sb.from('entries').select('*').in('person_id',ids).range(from,from+999);if(r.error)throw r.error;
+    const r=await sb.from('entries').select('*').in('person_id',ids).order('person_id').order('date').range(from,from+999);if(r.error)throw r.error;
     rows=rows.concat(r.data);if(r.data.length<1000)break;
   }
   const have=new Set();
@@ -274,7 +280,7 @@ async function pullAll(){
   });
   // cards reservados (a nuvem só devolve os da própria conta)
   if(ids.length)for(let from=0;;from+=1000){
-    const r=await sb.from('entries_private').select('person_id,date,custom_titulo,custom_texto').in('person_id',ids).range(from,from+999);if(r.error)throw r.error;
+    const r=await sb.from('entries_private').select('person_id,date,custom_titulo,custom_texto').in('person_id',ids).order('person_id').order('date').range(from,from+999);if(r.error)throw r.error;
     r.data.forEach(x=>{
       const k=x.person_id+'|'+x.date,had=have.has(k);have.add(k);if(S.dirty['e:'+k])return;
       const m=S.days[x.person_id]=S.days[x.person_id]||{};
@@ -296,7 +302,7 @@ async function pullAll(){
           else{localStorage.removeItem(BAR_KEY);localStorage.removeItem(BAR_SRC)}
           S.bar={color:row.bar.color||'verde',cover:!!row.cover,hasSrc:!!(row.cover&&row.src),t:row.bar.t||undefined,at:rat};
         }catch(e){console.warn('barra: armazenamento cheio')}
-      }else if((loc.color||loc.cover)&&(!row||(loc.at||0)>rat))S.dirty['bar:1']=1;
+      }else if((loc.color||loc.cover)&&(!row||(loc.at||0)>rat))S.dirty['bar:1']=stamp();
     }
     applyBar();
   }catch(e){console.warn('barra',e)}
@@ -304,7 +310,7 @@ async function pullAll(){
   try{
     let prow=[];
     if(ids.length)for(let from=0;;from+=1000){
-      const r=await sb.from('photos').select('id,person_id,date,path,w,h,created_at').in('person_id',ids).range(from,from+999);if(r.error)throw r.error;
+      const r=await sb.from('photos').select('id,person_id,date,path,w,h,created_at').in('person_id',ids).order('id').range(from,from+999);if(r.error)throw r.error;
       prow=prow.concat(r.data);if(r.data.length<1000)break;
     }
     const local=await allPhotos(),localIds=new Set(local.map(f=>f.id)),remoteP=new Set(prow.map(r=>r.id));
@@ -332,21 +338,27 @@ async function syncNow(){
   if(failure)setTimeout(syncNow,30000);
   else if(Object.keys(S.dirty).length)setTimeout(syncNow,300);   // a leitura criou pendências (ex.: pessoa inicial)
 }
+function editing(){
+  const a=document.activeElement,typing=a&&/^(TEXTAREA|INPUT)$/.test(a.tagName)&&$app.contains(a);
+  const compose=document.getElementById('compose'),composing=compose&&[...compose.querySelectorAll('[data-f]')].some(x=>x.type!=='checkbox'&&x.value.trim());
+  return !!(typing||composing||document.querySelector('.flip.flipped'));
+}
 function safeRender(){
   // não redesenha enquanto a pessoa está escrevendo ou editando um card
-  const a=document.activeElement,typing=a&&/^(TEXTAREA|INPUT)$/.test(a.tagName)&&$app.contains(a);
-  const compose=document.getElementById('compose'),composing=compose&&[...compose.querySelectorAll('[data-f]')].some(x=>x.value.trim());
-  if(typing||composing||document.querySelector('.flip.flipped')){C.pendingView=true;return}
+  if(editing()){C.pendingView=true;return}
   C.pendingView=false;render(true);
 }
 async function afterLogin(user){
   C.user=user;
   if(S.cloudUser&&S.cloudUser!==user.id){
-    if(!confirm('Este aparelho está ligado a outra conta Google. Entrar com esta conta troca os dados do aparelho pelos dela (os da outra conta continuam guardados na nuvem). Continuar?')){C.user=null;await sb.auth.signOut();return}
+    const pend=Object.keys(S.dirty).length>0;
+    if(!confirm('Este aparelho está ligado a outra conta Google. Entrar com esta conta troca os dados do aparelho pelos dela.\n\n'+(pend?'ATENÇÃO: há alterações da outra conta que ainda não foram enviadas para a nuvem e serão perdidas.':'Os dados da outra conta continuam guardados na nuvem.')+'\n\nContinuar?')){C.user=null;await sb.auth.signOut();return}
     try{await clearPhotos()}catch(e){}
     try{localStorage.removeItem(BAR_KEY);localStorage.removeItem(BAR_SRC)}catch(e){}
+    try{localStorage.removeItem(DRAFT)}catch(e){}
     S=fresh(S.font);
   }
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
   const gname=String((user.user_metadata&&(user.user_metadata.name||user.user_metadata.full_name))||'').trim().split(/\s+/)[0];
   if(!S.cloudUser){
     const bp=S.profiles.find(p=>p.blank&&p.name==='Eu');if(bp&&gname)bp.name=gname.slice(0,30);
@@ -367,6 +379,7 @@ async function wipeDevice(msg){
   clearTimeout(syncTimer);C.user=null;C.family=null;C.members=[];C.msg='';C.err=false;
   try{localStorage.removeItem(BAR_KEY);localStorage.removeItem(BAR_SRC)}catch(e){}
   try{await clearPhotos()}catch(e){}
+  try{localStorage.removeItem(DRAFT)}catch(e){}
   S=fresh(S.font);save();V.tab='hoje';V.date=todayIso();V.dwho=null;V.acct=false;render();applyBar();renderSync();
   if(msg)live(msg);
 }
@@ -424,7 +437,7 @@ const PUBHINT='Desmarque para guardar este card só para você.';
 const pubBox=on=>`<label class="pub" title="${PUBHINT}"><input type="checkbox" data-f="custom-p" ${on?'checked':''}><span>Publicar na família</span></label>`;
 
 /* ---------- Estado de tela ---------- */
-const now=new Date();
+let now=new Date();
 const V={acct:false,dmonth:null,dmonths:[],avTarget:null,tab:'hoje',date:todayIso(),scope:'eu',dwho:null,photoTarget:null,
   cal:{lvl:'month',y:now.getFullYear(),m:now.getMonth(),d:null},saving:false,msg:''};
 const $app=document.getElementById('app');
@@ -475,6 +488,38 @@ function readCards(pid,iso,editable,fam){
     .map(k=>flipCard(k,en,pid,iso,editable)).join('');
 }
 
+/* Rascunho: o que está sendo escrito e ainda não foi guardado sobrevive a trocar de aba, recarregar ou o sistema fechar o app */
+const DRAFT='gd-draft';let draftT=null;
+const drafts=()=>{try{const d=JSON.parse(localStorage.getItem(DRAFT));return d&&typeof d==='object'?d:{}}catch(e){return {}}};
+function saveDraft(){
+  clearTimeout(draftT);
+  const c=document.getElementById('compose'),k=c&&c.dataset.dk;if(!k)return;
+  const f=readFields(c),any=Object.keys(f).some(x=>typeof f[x]==='string'&&f[x].trim()),d=drafts();
+  if(any)d[k]=f;else delete d[k];
+  try{if(Object.keys(d).length)localStorage.setItem(DRAFT,JSON.stringify(d));else localStorage.removeItem(DRAFT)}catch(e){}
+}
+function dropDraft(k){const d=drafts();delete d[k];try{if(Object.keys(d).length)localStorage.setItem(DRAFT,JSON.stringify(d));else localStorage.removeItem(DRAFT)}catch(e){}}
+function restoreDraft(){
+  const c=document.getElementById('compose'),f=c&&drafts()[c.dataset.dk];if(!f||typeof f!=='object')return;
+  c.querySelectorAll('[data-f]').forEach(el=>{const v=f[el.dataset.f];if(el.type==='checkbox'){if(typeof v==='boolean')el.checked=v}else if(typeof v==='string')el.value=v.slice(0,4000)});
+}
+document.addEventListener('input',e=>{if(e.target.closest&&e.target.closest('#compose')){clearTimeout(draftT);draftT=setTimeout(saveDraft,400)}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveDraft();else rollDay()});
+window.addEventListener('pagehide',saveDraft);
+/* Virada do dia com o app aberto: "Hoje" acompanha a data, a não ser que haja algo sendo escrito */
+let dayMark=todayIso();
+function rollDay(){
+  const t=todayIso();if(t===dayMark)return;
+  const was=dayMark;dayMark=t;now=new Date();
+  if(V.date===was&&!editing()){V.date=t;V.msg='';if(!gated())render(true)}
+}
+setInterval(rollDay,60000);
+/* Outra aba ou janela do app gravou neste aparelho: esta passa a usar os mesmos dados */
+window.addEventListener('storage',e=>{
+  if(e.key!==STORE||!e.newValue)return;
+  try{const d=clean(JSON.parse(e.newValue));if(d){S=d;safeRender();renderSync()}}catch(_){}
+});
+
 /* ---------- Views ---------- */
 function viewHoje(){
   const p=me(),iso=V.date,en=entryOf(p.id,iso),d=parse(iso),away=iso!==todayIso();
@@ -486,7 +531,7 @@ function viewHoje(){
     <span class="row"><button class="linkbtn" data-a="opencal" data-date="${iso}">${ICON.cal}Ver no calendário</button><button class="linkbtn" data-a="tab" data-v="diario">${ICON.book}Ver no diário</button></span></div>
     <div class="cards">${readCards(p.id,iso,true)}</div>`;
   }else{
-    h+=`<div class="cards" id="compose">${KINDS.map(k=>composeCard(k,'new')).join('')}</div>
+    h+=`<div class="cards" id="compose" data-dk="${p.id}|${iso}">${KINDS.map(k=>composeCard(k,'new')).join('')}</div>
     <div class="row"><button class="btn" data-a="guardar" ${V.saving?'disabled':''}>Guardar</button><span class="status" id="status" role="status">${esc(V.msg)}</span></div>`;
   }
   return h;
@@ -640,6 +685,7 @@ function viewEntrar(){
     <p class="sub small ver">Versão ${VERSION}</p></section>`;
 }
 function render(keepFocus){
+  saveDraft();
   const g=gated();document.body.classList.toggle('gated',g);
   if(g){$app.innerHTML=viewEntrar();return}
   renderAccount();
@@ -650,6 +696,7 @@ function render(keepFocus){
   });
   document.getElementById('tab-hoje').title=away?`Voltar para hoje (${fmt(todayIso())})`:'';
   $app.innerHTML=V.tab==='hoje'?viewHoje():V.tab==='cal'?viewCal():V.tab==='diario'?viewDiario():viewPessoas();
+  restoreDraft();
   document.documentElement.style.setProperty('--fs',S.font||1);
   const imp=document.getElementById('imp');if(imp)imp.addEventListener('change',doImport);
   if(V.tab==='pessoas')photoInfo();
@@ -747,7 +794,7 @@ async function addPhotos(files){
   let ok=0,errs=[];
   for(let i=0;i<list.length;i++){
     dnote(`Reduzindo foto ${i+1} de ${list.length}…`);
-    try{const r=await shrink(list[i]);const nid=uid();await putPhoto({id:nid,pid:target.id,date:T.date,blob:r.blob,w:r.w,h:r.h,ts:Date.now()+i,synced:false});S.dirty['ph:'+nid]=1;ok++}
+    try{const r=await shrink(list[i]);const nid=uid();await putPhoto({id:nid,pid:target.id,date:T.date,blob:r.blob,w:r.w,h:r.h,ts:Date.now()+i,synced:false});S.dirty['ph:'+nid]=stamp();ok++}
     catch(e){errs.push(e.message||'Falha ao guardar a foto.')}
   }
   const parts=[];
@@ -847,7 +894,7 @@ function barSave(){
       bar.cover=true;bar.t={z:M.z,px:M.px,py:M.py};
     }
   }catch(e){alert('Não foi possível guardar a imagem neste aparelho (armazenamento cheio).');return}
-  bar.at=Date.now();S.bar=bar;S.dirty['bar:1']=1;save();closeBar();scheduleSync();live('Barra atualizada.');
+  bar.at=Date.now();S.bar=bar;S.dirty['bar:1']=stamp();save();closeBar();scheduleSync();live('Barra atualizada.');
 }
 const barPtrs=new Map();let barLast=0;
 document.addEventListener('pointerdown',e=>{const st=e.target.closest&&e.target.closest('#stage');if(!st||!M)return;try{st.setPointerCapture(e.pointerId)}catch(_){}barPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});barLast=0});
@@ -895,21 +942,33 @@ function applyFields(pid,iso,f){
   }
   S.days[pid][iso]=en;
   if(!hasContent(en))delete S.days[pid][iso];
-  S.dirty['e:'+pid+'|'+iso]=1;scheduleSync();
+  S.dirty['e:'+pid+'|'+iso]=stamp();scheduleSync();
 }
 function guardar(){
   const root=document.getElementById('compose');
   const f=readFields(root);
   const filled=['bom','descoberta','acao','acontecimento'].some(k=>(f[k]||'').trim())||(f['custom-x']||'').trim();
   if(!filled){V.msg='Escreva em pelo menos um card para guardar.';document.getElementById('status').textContent=V.msg;live(V.msg);return}
-  const p=me(),iso=V.date;
-  applyFields(p.id,iso,f);save();V.saving=true;V.msg='';
+  const p=me(),iso=V.date,ex=entryOf(p.id,iso);
+  if(ex){
+    ['bom','descoberta','acao','acontecimento'].forEach(k=>{const n=(f[k]||'').trim(),o=(ex[k]||'').trim();if(!n)delete f[k];else if(o&&o!==n)f[k]=o+'\n'+n});
+    const oc=ex.custom||{},nx=(f['custom-x']||'').trim(),ox=(oc.texto||'').trim();
+    if(!nx){delete f['custom-x'];delete f['custom-t'];delete f['custom-p']}
+    else{if(ox&&ox!==nx)f['custom-x']=ox+'\n'+nx;if(!(f['custom-t']||'').trim())f['custom-t']=oc.titulo||'';if(oc.priv&&ox)f['custom-p']=false}
+  }
+  applyFields(p.id,iso,f);save();dropDraft(root.dataset.dk);root.dataset.dk='';V.saving=true;V.msg='';
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   root.querySelectorAll('.card').forEach(c=>c.classList.add('sending'));
   setTimeout(()=>{V.saving=false;render();live(`Dia ${fmt(iso)} guardado no calendário.`)},reduce?0:900);
 }
 function toggleFlip(btn){
   const fl=btn.closest('.flip'),on=fl.classList.toggle('flipped');
+  if(!on&&fl.dataset.key){
+    const [pid,iso,k]=fl.dataset.key.split('|'),kind=KINDS.find(x=>x.k===k),v=valueOf(kind,entryOf(pid,iso));
+    fl.querySelector('.back textarea').value=kind.custom?v.texto:v;
+    if(kind.custom){fl.querySelector('.back [data-f=custom-t]').value=v.titulo||'';fl.querySelector('.back [data-f=custom-p]').checked=!v.priv}
+    if(C.pendingView)setTimeout(safeRender,800);
+  }
   fl.querySelector('.front').toggleAttribute('inert',on);
   fl.querySelector('.back').toggleAttribute('inert',!on);
   const target=on?fl.querySelector('.back textarea'):fl.querySelector('.front .ibtn');
@@ -929,17 +988,28 @@ function fixsave(btn){
 function addPerson(){
   const used=S.profiles.map(p=>p.color);
   const color=COLORS.find(c=>!used.includes(c))||COLORS[S.profiles.length%COLORS.length];
-  const id=uid();S.profiles.push({id,name:'Pessoa '+(S.profiles.length+1),color});S.dirty['p:'+id]=1;save();scheduleSync();render(true);
+  const id=uid();S.profiles.push({id,name:'Pessoa '+(S.profiles.length+1),color});S.dirty['p:'+id]=stamp();save();scheduleSync();render(true);
   setTimeout(()=>{const i=document.getElementById('n-'+id);if(i){i.focus();i.select()}},30);
 }
 async function exportData(auto){
-  let photos=[];
-  try{photos=await Promise.all((await allPhotos()).map(async p=>({id:p.id,pid:p.pid,date:p.date,w:p.w,h:p.h,ts:p.ts,data:await blobToDataURL(p.blob)})))}catch(e){}
-  const blob=new Blob([JSON.stringify({...S,photos},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gracas-do-dia-${auto?'backup-':''}${todayIso()}.json`;a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  S.bk.last=todayIso();S.bk.week=weekStart();save();
-  if(auto)live('Backup semanal salvo na pasta de downloads.');
+  try{
+    const own=new Set(S.profiles.filter(p=>!p.remote).map(p=>p.id));
+    const parts=[JSON.stringify(S).slice(0,-1),',"photos":['];let lost=0,first=true;
+    let list=[];try{list=(await allPhotos()).filter(p=>own.has(p.pid))}catch(e){lost=-1}
+    for(const p of list){
+      try{const data=await blobToDataURL(p.blob);parts.push((first?'':',')+JSON.stringify({id:p.id,pid:p.pid,date:p.date,w:p.w,h:p.h,ts:p.ts,data}));first=false}catch(e){lost++}
+    }
+    parts.push(']}');
+    const blob=new Blob(parts,{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gracas-do-dia-${auto?'backup-':''}${todayIso()}.json`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+    S.bk.last=todayIso();S.bk.week=weekStart();save();
+    const warn=lost?' Atenção: '+(lost<0?'as fotos':lost+(lost===1?' foto':' fotos'))+' não entraram neste arquivo.':'';
+    if(auto)live('Backup semanal salvo na pasta de downloads.'+warn);else if(warn)alert('Backup salvo.'+warn);
+  }catch(e){
+    console.warn(e);
+    if(auto){S.bk.week=weekStart();save()}else alert('Não consegui gerar o backup agora. Tente de novo.');
+  }
 }
 /* Backup semanal: uma vez por semana (a semana começa no domingo), na primeira abertura do app com tudo sincronizado */
 const weekStart=()=>{const n=new Date();n.setDate(n.getDate()-n.getDay());return isoOf(n.getFullYear(),n.getMonth(),n.getDate())};
@@ -989,7 +1059,7 @@ document.addEventListener('click',e=>{
     case 'tab':V.acct=false;if(v==='hoje')goToday();else{if(v==='diario')V.dmonth=null;V.tab=v;render()}break;
     case 'acctmenu':V.acct=!V.acct;renderAccount();{const b=document.querySelector('[data-a=acctmenu]');b&&b.focus()}break;
     case 'avpick':V.avTarget=el.dataset.pid;document.getElementById('avin').click();break;
-    case 'avdel':{const pp=S.profiles.find(x=>x.id===el.dataset.pid);if(pp&&!pp.remote){delete pp.avatar;S.dirty['p:'+pp.id]=1;save();scheduleSync();render(true);live('Foto removida.')}break}
+    case 'avdel':{const pp=S.profiles.find(x=>x.id===el.dataset.pid);if(pp&&!pp.remote){delete pp.avatar;S.dirty['p:'+pp.id]=stamp();save();scheduleSync();render(true);live('Foto removida.')}break}
     case 'dmo':{const i=V.dmonths.indexOf(V.dmonth)+ +v;if(V.dmonths[i]){V.dmonth=V.dmonths[i];fillDiary();window.scrollTo(0,0)}break}
     case 'font':S.font=Math.min(1.5,Math.max(.85,+((S.font||1)+v*.1).toFixed(2)));save();render(true);break;
     case 'guardar':guardar();break;
@@ -1010,7 +1080,7 @@ document.addEventListener('click',e=>{
     case 'delp':{
       const p=S.profiles.find(x=>x.id===el.dataset.pid);
       if(!confirm(`Remover ${p.name} e todos os cards e fotos dessa pessoa? Isso não pode ser desfeito.`))break;
-      S.profiles=S.profiles.filter(x=>x.id!==p.id);delete S.days[p.id];Object.keys(S.dirty).forEach(k=>{if(k.includes(p.id))delete S.dirty[k]});if(p.synced)S.dirty['pd:'+p.id]=1;
+      S.profiles=S.profiles.filter(x=>x.id!==p.id);delete S.days[p.id];Object.keys(S.dirty).forEach(k=>{if(k.includes(p.id))delete S.dirty[k]});if(p.synced)S.dirty['pd:'+p.id]=stamp();
       if(S.active===p.id)S.active=S.profiles[0].id;save();scheduleSync();delPhotosOf(p.id).catch(()=>{});render(true);break}
     case 'export':exportData();break;
     case 'baredit':openBarEditor(el);break;
@@ -1035,17 +1105,17 @@ document.addEventListener('click',e=>{
     case 'dwho':V.dwho=v;render(true);break;
     case 'dprint':window.print();break;
     case 'phadd':V.photoTarget={date:el.dataset.date,pid:el.dataset.pid};document.getElementById('phin').click();break;
-    case 'phdel':if(confirm('Remover esta foto do diário?')){const id=el.dataset.id,pid=el.dataset.pid;delPhoto(id).then(()=>{if(S.dirty['ph:'+id])delete S.dirty['ph:'+id];else S.dirty['phd:'+pid+'|'+id]=1;save();scheduleSync();return fillDiary('Foto removida.')}).catch(()=>{})}break;
+    case 'phdel':if(confirm('Remover esta foto do diário?')){const id=el.dataset.id,pid=el.dataset.pid;delPhoto(id).then(()=>{if(S.dirty['ph:'+id])delete S.dirty['ph:'+id];else S.dirty['phd:'+pid+'|'+id]=stamp();save();scheduleSync();return fillDiary('Foto removida.')}).catch(()=>{})}break;
   }
 });
 document.addEventListener('change',e=>{
   const el=e.target;
   if(el.id==='avin'){const f=el.files[0];el.value='';if(!f)return;
     const pp=S.profiles.find(x=>x.id===V.avTarget);if(!pp||pp.remote)return;
-    makeAvatar(f).then(url=>{pp.avatar=url;S.dirty['p:'+pp.id]=1;save();scheduleSync();render(true);live('Foto atualizada.')}).catch(err=>{alert(err.message||'Não consegui usar essa imagem.')});return}
+    makeAvatar(f).then(url=>{pp.avatar=url;S.dirty['p:'+pp.id]=stamp();save();scheduleSync();render(true);live('Foto atualizada.')}).catch(err=>{alert(err.message||'Não consegui usar essa imagem.')});return}
   if(el.id==='bkauto'){S.bk.auto=el.checked;save();live(el.checked?'Backup semanal ligado.':'Backup semanal desligado.');return}
   if(el.id==='phin'){const files=[...el.files];el.value='';addPhotos(files);return}
-  if(el.dataset.a==='rename'){const p=S.profiles.find(x=>x.id===el.dataset.pid);if(p.remote)return;p.name=el.value.trim()||p.name;S.dirty['p:'+p.id]=1;save();scheduleSync();render(true)}
+  if(el.dataset.a==='rename'){const p=S.profiles.find(x=>x.id===el.dataset.pid);if(p.remote)return;p.name=el.value.trim()||p.name;S.dirty['p:'+p.id]=stamp();save();scheduleSync();render(true)}
 });
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
