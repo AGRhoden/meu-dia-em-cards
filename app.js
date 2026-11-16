@@ -92,7 +92,7 @@ function clean(d){
     Object.keys(m).forEach(k=>{
       const e=m[k];if(!RE_DATE.test(k)||!e||typeof e!=='object')return;
       const c=e.custom&&typeof e.custom==='object'?e.custom:{};
-      out[k]={bom:str(e.bom,4000),descoberta:str(e.descoberta,4000),acao:str(e.acao,4000),acontecimento:str(e.acontecimento,4000),custom:{titulo:str(c.titulo,60),texto:str(c.texto,4000)}};
+      out[k]={bom:str(e.bom,4000),descoberta:str(e.descoberta,4000),acao:str(e.acao,4000),acontecimento:str(e.acontecimento,4000),custom:{titulo:str(c.titulo,60),texto:str(c.texto,4000),...(c.priv===true?{priv:true}:{})}};
     });
     days[p.id]=out;
   });
@@ -118,6 +118,7 @@ if(!S.bk)S.bk={auto:true,week:'',last:''};
 const save=()=>{try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){alert('Não foi possível salvar neste aparelho (armazenamento cheio ou bloqueado).')}};
 const me=()=>S.profiles.find(p=>p.id===S.active)||S.profiles.find(p=>!p.remote)||S.profiles[0];
 const entryOf=(pid,iso)=>(S.days[pid]||{})[iso];
+const VERSION='1.1';
 const hasContent=en=>!!en&&(['bom','descoberta','acao','acontecimento'].some(k=>(en[k]||'').trim())||((en.custom&&(en.custom.texto||'').trim())));
 
 /* ---------- Fotos: IndexedDB ---------- */
@@ -200,11 +201,14 @@ async function pushDirty(){
       const [pid,date]=rest.split('|'),p=S.profiles.find(x=>x.id===pid),en=entryOf(pid,date);
       if(p&&!p.remote){
         if(!p.synced){const pr=await sb.from('people').upsert({id:p.id,owner_id:C.user.id,name:p.name.slice(0,60),color:p.color,avatar:okAv(p.avatar)?p.avatar:null,family_id:C.family?C.family.id:null});if(pr.error)throw pr.error;p.synced=true;delete p.blank;delete S.dirty['p:'+p.id]}
-        if(hasContent(en)){
-          const c=en.custom||{};
-          const {error}=await sb.from('entries').upsert({person_id:pid,date,bom:(en.bom||'').slice(0,4000),descoberta:(en.descoberta||'').slice(0,4000),acao:(en.acao||'').slice(0,4000),acontecimento:(en.acontecimento||'').slice(0,4000),custom_titulo:(c.titulo||'').slice(0,60),custom_texto:(c.texto||'').slice(0,4000)});
+        const c=(en&&en.custom)||{},priv=isPriv(en);
+        // primeiro a parte que a família lê (sem o card reservado), depois a parte só do dono
+        if(hasShared(en)){
+          const {error}=await sb.from('entries').upsert({person_id:pid,date,bom:(en.bom||'').slice(0,4000),descoberta:(en.descoberta||'').slice(0,4000),acao:(en.acao||'').slice(0,4000),acontecimento:(en.acontecimento||'').slice(0,4000),custom_titulo:priv?'':(c.titulo||'').slice(0,60),custom_texto:priv?'':(c.texto||'').slice(0,4000)});
           if(error)throw error;
         }else{const {error}=await sb.from('entries').delete().eq('person_id',pid).eq('date',date);if(error)throw error}
+        if(priv){const {error}=await sb.from('entries_private').upsert({person_id:pid,date,custom_titulo:(c.titulo||'').slice(0,60),custom_texto:(c.texto||'').slice(0,4000),updated_at:new Date().toISOString()});if(error)throw error}
+        else{const {error}=await sb.from('entries_private').delete().eq('person_id',pid).eq('date',date);if(error)throw error}
       }
     }else if(t==='ph'){
       const rec=await getPhoto(rest);
@@ -268,6 +272,17 @@ async function pullAll(){
     const k=r.person_id+'|'+r.date;have.add(k);if(S.dirty['e:'+k])return;
     (S.days[r.person_id]=S.days[r.person_id]||{})[r.date]={bom:r.bom,descoberta:r.descoberta,acao:r.acao,acontecimento:r.acontecimento,custom:{titulo:r.custom_titulo,texto:r.custom_texto}};
   });
+  // cards reservados (a nuvem só devolve os da própria conta)
+  if(ids.length)for(let from=0;;from+=1000){
+    const r=await sb.from('entries_private').select('person_id,date,custom_titulo,custom_texto').in('person_id',ids).range(from,from+999);if(r.error)throw r.error;
+    r.data.forEach(x=>{
+      const k=x.person_id+'|'+x.date,had=have.has(k);have.add(k);if(S.dirty['e:'+k])return;
+      const m=S.days[x.person_id]=S.days[x.person_id]||{};
+      if(!had||!m[x.date])m[x.date]={bom:'',descoberta:'',acao:'',acontecimento:''};
+      m[x.date].custom={titulo:x.custom_titulo,texto:x.custom_texto,priv:true};
+    });
+    if(r.data.length<1000)break;
+  }
   ids.forEach(pid=>{const m=S.days[pid]||{};Object.keys(m).forEach(d=>{if(!have.has(pid+'|'+d)&&!S.dirty['e:'+pid+'|'+d])delete m[d]})});
   Object.keys(S.days).forEach(pid=>{if(!S.profiles.some(p=>p.id===pid))delete S.days[pid]});
   // barra (cor e capa) da conta
@@ -402,6 +417,12 @@ if(sb){
   setInterval(()=>{if(!document.hidden)syncNow()},60000);
 }
 
+/* Card livre "só para mim": não é publicado na família */
+const isPriv=en=>!!(en&&en.custom&&en.custom.priv&&(en.custom.texto||'').trim());
+const hasShared=en=>!!en&&(['bom','descoberta','acao','acontecimento'].some(k=>(en[k]||'').trim())||(!isPriv(en)&&!!(en.custom&&(en.custom.texto||'').trim())));
+const PUBHINT='Desmarque para guardar este card só para você.';
+const pubBox=on=>`<label class="pub" title="${PUBHINT}"><input type="checkbox" data-f="custom-p" ${on?'checked':''}><span>Publicar na família</span></label>`;
+
 /* ---------- Estado de tela ---------- */
 const now=new Date();
 const V={acct:false,dmonth:null,dmonths:[],avTarget:null,tab:'hoje',date:todayIso(),scope:'eu',dwho:null,photoTarget:null,
@@ -425,7 +446,7 @@ function composeCard(kind,idp){
       <h3><span class="kic" aria-hidden="true">${ICON[kind.k]}</span><label class="ttl" for="${lab}-t">${kind.t}</label></h3>
       <input class="t" id="${lab}-t" data-f="custom-t" maxlength="40" placeholder="Dê um título (opcional)">
       <label class="sr" for="${lab}">Texto do card livre</label>
-      <textarea class="ruled" maxlength="4000" id="${lab}" data-f="custom-x" placeholder="${esc(kind.h)}"></textarea></article>`;
+      <textarea class="ruled" maxlength="4000" id="${lab}" data-f="custom-x" placeholder="${esc(kind.h)}"></textarea>${pubBox(true)}</article>`;
   }
   return `<article class="card k-${kind.k}" data-k="${kind.k}">
     <h3><span class="kic" aria-hidden="true">${ICON[kind.k]}</span><label class="ttl" for="${lab}">${kind.t}</label></h3>
@@ -439,17 +460,18 @@ function flipCard(kind,en,pid,iso,editable){
   const ttl=titleOf(kind,en);
   const front=`<div class="face front">${head(kind,en)}
       ${text.trim()?`<p class="txt">${esc(text)}</p>`:`<p class="txt empty">Em branco</p>`}
+      ${kind.custom&&editable?`<span class="privtag" ${v.priv&&text.trim()?'':'hidden'}>Só para mim</span>`:''}
       ${editable?`<span class="corner">${ibtn('flip',ICON.edit,`Editar “${ttl}” (virar o card)`)}</span>`:''}</div>`;
   if(!editable)return `<div class="flip"><div class="inner">${front}</div></div>`;
   const back=`<div class="face back" inert>
       ${kind.custom?`<h3><span class="kic" aria-hidden="true">${ICON.custom}</span><input class="t" data-f="custom-t" maxlength="40" aria-label="Título do card livre" placeholder="Card livre" value="${esc(v.titulo)}" style="padding-bottom:0;border:0;min-width:0"></h3>`:`<h3><span class="kic" aria-hidden="true">${ICON[kind.k]}</span><label class="ttl" for="${lab}">${kind.t}</label></h3>`}
       <textarea class="ruled" maxlength="4000" id="${lab}" data-f="${kind.custom?'custom-x':kind.k}" ${kind.custom?'aria-label="Texto do card livre"':''} placeholder="${esc(kind.h)}">${esc(text)}</textarea>
-      <div class="actions">${ibtn('flip',ICON.x,'Cancelar')}${ibtn('fixsave',ICON.check,'Salvar correção',`data-pid="${pid}" data-date="${iso}" data-k="${kind.k}"`,'go lg')}</div></div>`;
+      <div class="actions">${kind.custom?pubBox(!v.priv):''}${ibtn('flip',ICON.x,'Cancelar')}${ibtn('fixsave',ICON.check,'Salvar correção',`data-pid="${pid}" data-date="${iso}" data-k="${kind.k}"`,'go lg')}</div></div>`;
   return `<div class="flip" data-key="${key}"><div class="inner">${front}${back}</div></div>`;
 }
-function readCards(pid,iso,editable){
+function readCards(pid,iso,editable,fam){
   const en=entryOf(pid,iso);
-  return KINDS.filter(k=>editable||(k.custom?(en&&en.custom&&(en.custom.texto||'').trim()):(en&&(en[k.k]||'').trim())))
+  return KINDS.filter(k=>!(fam&&k.custom&&isPriv(en))).filter(k=>editable||(k.custom?(en&&en.custom&&(en.custom.texto||'').trim()):(en&&(en[k.k]||'').trim())))
     .map(k=>flipCard(k,en,pid,iso,editable)).join('');
 }
 
@@ -471,7 +493,7 @@ function viewHoje(){
 }
 
 function peopleInScope(){return V.scope==='familia'?S.profiles:[me()]}
-function daysWith(iso){return peopleInScope().filter(p=>hasContent(entryOf(p.id,iso)))}
+function daysWith(iso){const has=V.scope==='familia'?hasShared:hasContent;return peopleInScope().filter(p=>has(entryOf(p.id,iso)))}
 function monthCount(y,m){
   const n=new Date(y,m+1,0).getDate();let c=0;
   for(let d=1;d<=n;d++)if(daysWith(isoOf(y,m,d)).length)c++;
@@ -530,12 +552,13 @@ function viewCal(){
       <h3>${fmt(iso)}<small>${DIAS[d.getDay()]}</small></h3>
       ${ibtn('dy',ICON.right,'Próximo dia','data-v="1"'+(next?' disabled':''),'lg')}</div>`;
     let shown=false;
+    const famS=V.scope==='familia',has=famS?hasShared:hasContent;
     peopleInScope().forEach(p=>{
       const en=entryOf(p.id,iso),editable=p.id===S.active;
-      if(!hasContent(en)&&!editable)return;
+      if(!has(en)&&!editable)return;
       shown=true;
-      if(V.scope==='familia'||!hasContent(en))h+=`<div class="person"><i class="dot" style="background:${p.color}"></i>${esc(p.name)}</div>`;
-      if(hasContent(en))h+=`<div class="cards" style="margin-top:14px">${readCards(p.id,iso,editable)}</div>`;
+      if(famS||!has(en))h+=`<div class="person"><i class="dot" style="background:${p.color}"></i>${esc(p.name)}</div>`;
+      if(has(en))h+=`<div class="cards" style="margin-top:14px">${readCards(p.id,iso,editable,famS)}</div>`;
       else h+=`<p class="sub" style="margin-top:6px">Nada guardado neste dia.</p><button class="btn sm" data-a="gohoje" data-date="${iso}">Preencher este dia</button>`;
     });
     if(!shown)h+='<p class="sub" style="margin-top:14px">Nada guardado neste dia.</p>';
@@ -561,7 +584,8 @@ function viewPessoas(){
   <div class="row"><button class="btn sec sm" data-a="export">${ICON.down}Exportar</button>
   <label class="btn sec sm" style="cursor:pointer">${ICON.up}Importar<input type="file" accept="application/json" id="imp" class="sr"></label></div>
   <label class="check"><input type="checkbox" id="bkauto" ${S.bk.auto?'checked':''}><span>Backup automático toda semana<small>Aos domingos, ou na primeira vez que o app for aberto na semana, um arquivo de backup é salvo na pasta de downloads deste aparelho.${S.bk.last?' Último backup: '+fmt(S.bk.last)+'.':''}</small></span></label>
-  ${sb?'':'<p class="note">A sincronização com a nuvem não está disponível agora.</p>'}`;
+  ${sb?'':'<p class="note">A sincronização com a nuvem não está disponível agora.</p>'}
+  <p class="sub ver">Graças do Dia · versão ${VERSION}</p>`;
   return h;
 }
 function cloudSection(){
@@ -581,7 +605,7 @@ function cloudSection(){
         ${f.creator&&!m.me?`<button class="linkbtn" data-a="famkick" data-id="${esc(m.id)}" data-n="${esc(m.name||m.email)}">Remover</button>`:''}</li>`).join('')}</ul>
       ${f.creator?`<div class="famrow"><label for="famrename">Sobrenome</label><input id="famrename" maxlength="60" value="${esc(f.name)}"><button class="btn sec sm" data-a="famrename">Salvar</button></div>`:''}
       <div class="row" style="margin-top:6px">Código de convite: <code>${esc(f.code)}</code><button class="linkbtn" data-a="famcopy">Copiar</button><button class="linkbtn" data-a="famrotate">Gerar novo código</button></div>
-      <p class="sub" style="margin:8px 0 10px;font-size:.85rem">Quem entrar com este código passa a ver os dias de todos. Cada pessoa edita só o que é dela.</p>
+      <p class="sub" style="margin:8px 0 10px;font-size:.85rem">Quem entrar com este código passa a ver os dias de todos, menos os cards livres guardados só para quem escreveu. Cada pessoa edita só o que é dela.</p>
       <button class="linkbtn" data-a="famleave">Sair da família</button></div>`;
   }else{
     h+=`<div class="famrow"><label class="sr" for="famname">Sobrenome da família</label><input id="famname" maxlength="60" placeholder="Sobrenome da família (ex.: Silva)"><button class="btn sec sm" data-a="famcreate">Criar família</button></div>
@@ -608,10 +632,12 @@ const gated=()=>!!sb&&!S.cloudUser;
 function viewEntrar(){
   const back=/[?&]code=/.test(location.search);
   return `<section class="gate"><h2 class="title">Bem-vindo</h2>
-    <p class="sub">Um diário para guardar, a cada dia, as graças recebidas. Entre com sua conta Google para abrir o seu.</p>
+    <p class="sub">Um lugar para guardar, a cada dia, as graças recebidas.</p>
+    <p class="sub">Não é um diário secreto nem oculto: é uma reunião de pequenas memórias da família, escritas para não esquecer e lembradas juntos, à mesa do jantar ou na oração da noite.</p>
     ${back?'<p class="sub" role="status">Entrando…</p>':'<button class="btn" data-a="gsignin">Entrar com Google</button>'}
     <p class="sub" id="cloudline" role="status" aria-live="polite">${esc(C.msg)}</p>
-    <p class="sub small">Seus dias ficam guardados na sua conta e só você e a sua família podem vê-los.</p></section>`;
+    <p class="sub small">Seus dias ficam guardados na sua conta e só você e a sua família podem vê-los. O card livre pode ficar só para você.</p>
+    <p class="sub small ver">Versão ${VERSION}</p></section>`;
 }
 function render(keepFocus){
   const g=gated();document.body.classList.toggle('gated',g);
@@ -640,15 +666,17 @@ async function photoInfo(){
 
 /* ---------- Diário contínuo: todos os dias com registro, sempre atualizado ---------- */
 let diaryUrls=[];
-const topicsOf=en=>{
+const topicsOf=(en,fam)=>{
   const o=[];
   ['bom','descoberta','acao','acontecimento'].forEach(k=>{const t=((en&&en[k])||'').trim();if(t)o.push({t})});
-  const c=en&&en.custom;if(c&&(c.texto||'').trim())o.push({lead:(c.titulo||'').trim(),t:c.texto.trim()});
+  const c=en&&en.custom;if(c&&(c.texto||'').trim()&&!(fam&&c.priv))o.push({lead:(c.titulo||'').trim(),t:c.texto.trim(),priv:!!c.priv});
   return o;
 };
 function viewDiario(){
-  if(V.dwho!=='family'&&!S.profiles.some(p=>p.id===V.dwho))V.dwho=S.active;
-  const seg=S.profiles.length>1?`<div class="seg" role="group" aria-label="Diário de">${S.profiles.map(p=>`<button data-a="dwho" data-v="${p.id}" aria-pressed="${V.dwho===p.id}">${esc(p.name)}</button>`).join('')}<button data-a="dwho" data-v="family" aria-pressed="${V.dwho==='family'}">${esc(famLabel())}</button></div>`:'';
+  // os dias dos outros da família aparecem só em "Família"
+  const own=S.profiles.filter(p=>!p.remote);
+  if(V.dwho!=='family'&&!own.some(p=>p.id===V.dwho))V.dwho=S.active;
+  const seg=S.profiles.length>1?`<div class="seg" role="group" aria-label="Diário de">${own.map(p=>`<button data-a="dwho" data-v="${p.id}" aria-pressed="${V.dwho===p.id}">${own.length===1?'Só ':''}${esc(p.name)}</button>`).join('')}<button data-a="dwho" data-v="family" aria-pressed="${V.dwho==='family'}">${esc(famLabel())}</button></div>`:'';
   return `<div class="dbar"><h2 class="title">Diário</h2><div class="row">${seg}${ibtn('dprint',ICON.print,'Imprimir ou salvar em PDF','','lg')}</div></div>
     <p class="sub" id="dsub" style="margin:4px 0 0"></p><div id="dnav"></div><div class="dnote" id="dnote" role="status" aria-live="polite"></div><div id="diary" aria-busy="true"></div>`;
 }
@@ -664,7 +692,7 @@ async function fillDiary(note){
   diaryUrls.forEach(u=>URL.revokeObjectURL(u));diaryUrls=[];
   const set=new Set();
   people.forEach(p=>{
-    Object.keys(S.days[p.id]||{}).forEach(d=>{if(hasContent(entryOf(p.id,d)))set.add(d)});
+    Object.keys(S.days[p.id]||{}).forEach(d=>{if((fam?hasShared:hasContent)(entryOf(p.id,d)))set.add(d)});
     Object.keys(photos[p.id]).forEach(d=>set.add(d));
   });
   const allDates=[...set].sort();
@@ -683,10 +711,10 @@ async function fillDiary(note){
       <span class="row"><button class="linkbtn" data-a="phadd" data-date="${iso}" data-pid="${target.id}" ${cnt>=MAX_PHOTOS_DAY||target.remote?'disabled':''} title="${cnt>=MAX_PHOTOS_DAY?'Limite de '+MAX_PHOTOS_DAY+' fotos neste dia':'Adicionar foto'+(fam&&S.profiles.length>1?' ('+esc(target.name)+')':'')}" aria-label="Adicionar foto a ${fmt(iso)}">${ICON.photo}<span>${cnt?cnt+'/'+MAX_PHOTOS_DAY:''}</span></button>
       ${ibtn('opencal',ICON.edit,'Editar este dia no calendário',`data-date="${iso}"`)}</span></header>`;
     people.forEach(p=>{
-      const tp=topicsOf(entryOf(p.id,iso)),ph=(photos[p.id]||{})[iso]||[];
+      const tp=topicsOf(entryOf(p.id,iso),fam),ph=(photos[p.id]||{})[iso]||[];
       if(!tp.length&&!ph.length)return;
       if(fam)html+=`<div class="sd-who">${avatar(p,'xs')}${esc(p.name)}</div>`;
-      if(tp.length)html+=`<ul class="topics">${tp.map(x=>`<li>${x.lead?`<b>${esc(x.lead)}.</b> `:''}${esc(x.t)}</li>`).join('')}</ul>`;
+      if(tp.length)html+=`<ul class="topics">${tp.map(x=>`<li>${x.lead?`<b>${esc(x.lead)}.</b> `:''}${esc(x.t)}${x.priv?' <small class="privnote">(só para mim)</small>':''}</li>`).join('')}</ul>`;
       if(ph.length){
         ph.sort((a,b)=>a.ts-b.ts);
         html+=`<div class="photos ${ph.length>1?'two':''}">${ph.map(f=>{const u=URL.createObjectURL(f.blob);diaryUrls.push(u);
@@ -853,16 +881,17 @@ document.addEventListener('change',async e=>{
 /* ---------- Ações ---------- */
 function readFields(root){
   const o={};
-  root.querySelectorAll('[data-f]').forEach(el=>{o[el.dataset.f]=el.value});
+  root.querySelectorAll('[data-f]').forEach(el=>{o[el.dataset.f]=el.type==='checkbox'?el.checked:el.value});
   return o;
 }
 function applyFields(pid,iso,f){
   S.days[pid]=S.days[pid]||{};
   const en=S.days[pid][iso]||{};
   ['bom','descoberta','acao','acontecimento'].forEach(k=>{if(k in f)en[k]=f[k].trim()});
-  if('custom-x' in f||'custom-t' in f){
+  if('custom-x' in f||'custom-t' in f||'custom-p' in f){
     const old=en.custom||{};
     en.custom={titulo:('custom-t' in f?f['custom-t']:old.titulo||'').trim(),texto:('custom-x' in f?f['custom-x']:old.texto||'').trim()};
+    if('custom-p' in f?!f['custom-p']:old.priv)en.custom.priv=true;
   }
   S.days[pid][iso]=en;
   if(!hasContent(en))delete S.days[pid][iso];
@@ -894,7 +923,7 @@ function fixsave(btn){
   const kind=KINDS.find(x=>x.k===k),en=entryOf(pid,date),v=valueOf(kind,en);
   const text=kind.custom?v.texto:v,p=fl.querySelector('.front p.txt');
   p.textContent=text.trim()?text:'Em branco';p.classList.toggle('empty',!text.trim());
-  if(kind.custom){const t=titleOf(kind,en),el=fl.querySelector('.front .ttl');el.textContent=t;el.title=t}
+  if(kind.custom){const t=titleOf(kind,en),el=fl.querySelector('.front .ttl');el.textContent=t;el.title=t;const tg=fl.querySelector('.front .privtag');if(tg)tg.hidden=!(v.priv&&text.trim())}
   toggleFlip(btn);
 }
 function addPerson(){

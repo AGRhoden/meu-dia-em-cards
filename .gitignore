@@ -2,3 +2,5 @@ client_secret*
 *.json.bak
 .DS_Store
 _propostas/
+Backups/
+gracas-do-dia-backup-*.json
