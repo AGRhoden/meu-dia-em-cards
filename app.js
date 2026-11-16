@@ -102,6 +102,7 @@ function clean(d){
   if(typeof d.cloudUser==='string'&&RE_ID.test(d.cloudUser))o.cloudUser=d.cloudUser;
   const b=d.bar&&typeof d.bar==='object'?d.bar:null,t=b&&b.t&&typeof b.t==='object'?b.t:null;
   if(typeof d.famName==='string')o.famName=d.famName.slice(0,60);
+  if(+d.admSeen>0)o.admSeen=+d.admSeen;
   const k=d.bk&&typeof d.bk==='object'?d.bk:{};
   o.bk={auto:k.auto!==false,week:RE_DATE.test(k.week)?k.week:'',last:RE_DATE.test(k.last)?k.last:''};
   if(b){o.bar={color:str(b.color,20),cover:b.cover===true,hasSrc:b.hasSrc===true,at:+b.at||0};if(t)o.bar.t={z:+t.z||1,px:+t.px||0,py:+t.py||0}}
@@ -118,7 +119,7 @@ if(!S.bk)S.bk={auto:true,week:'',last:''};
 const save=()=>{try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){alert('Não foi possível salvar neste aparelho (armazenamento cheio ou bloqueado).')}};
 const me=()=>S.profiles.find(p=>p.id===S.active)||S.profiles.find(p=>!p.remote)||S.profiles[0];
 const entryOf=(pid,iso)=>(S.days[pid]||{})[iso];
-const VERSION='1.2';
+const VERSION='1.3';
 const stamp=()=>Date.now()+Math.random();
 const hasContent=en=>!!en&&(['bom','descoberta','acao','acontecimento'].some(k=>(en[k]||'').trim())||((en.custom&&(en.custom.texto||'').trim())));
 
@@ -331,6 +332,8 @@ async function syncNow(){
   try{await pullAll()}catch(e){failure=failure||e}
   try{const r=await sb.rpc('get_my_family');if(!r.error){C.family=r.data||null;S.famName=C.family?C.family.name:'';
     if(C.family){const m=await sb.rpc('get_family_members');if(!m.error&&Array.isArray(m.data))C.members=m.data}else C.members=[]}}catch(e){}
+  // painel de uso: o banco só responde para quem mantém o app; para as outras contas vem vazio e não se pergunta de novo
+  if(C.admin!==false){try{const a=await sb.rpc('admin_overview');if(!a.error){C.admin=Array.isArray(a.data)?a.data:false;if(C.admin&&!S.admSeen)S.admSeen=Date.now()}}catch(e){}}
   if(failure){console.warn(failure);C.err=true;C.msg=navigator.onLine?'Não consegui sincronizar agora. Tento de novo em instantes.':'Sem conexão. Vai sincronizar quando voltar.'}
   else{C.msg='Sincronizado às '+hhmm()}
   C.busy=false;save();cloudLine();safeRender();renderSync();
@@ -349,7 +352,7 @@ function safeRender(){
   C.pendingView=false;render(true);
 }
 async function afterLogin(user){
-  C.user=user;
+  C.user=user;C.admin=undefined;C.admBase=null;
   if(S.cloudUser&&S.cloudUser!==user.id){
     const pend=Object.keys(S.dirty).length>0;
     if(!confirm('Este aparelho está ligado a outra conta Google. Entrar com esta conta troca os dados do aparelho pelos dela.\n\n'+(pend?'ATENÇÃO: há alterações da outra conta que ainda não foram enviadas para a nuvem e serão perdidas.':'Os dados da outra conta continuam guardados na nuvem.')+'\n\nContinuar?')){C.user=null;await sb.auth.signOut();return}
@@ -376,7 +379,7 @@ async function cloudSignIn(){
 }
 let leaving=false;
 async function wipeDevice(msg){
-  clearTimeout(syncTimer);C.user=null;C.family=null;C.members=[];C.msg='';C.err=false;
+  clearTimeout(syncTimer);C.user=null;C.family=null;C.members=[];C.admin=undefined;C.admBase=null;C.msg='';C.err=false;
   try{localStorage.removeItem(BAR_KEY);localStorage.removeItem(BAR_SRC)}catch(e){}
   try{await clearPhotos()}catch(e){}
   try{localStorage.removeItem(DRAFT)}catch(e){}
@@ -623,6 +626,7 @@ function viewPessoas(){
   });
   h+=`</div><button class="btn sec sm" data-a="addp">${ICON.plus}Adicionar pessoa</button>
   ${cloudSection()}
+  ${adminSection()}
   <h2 class="sec-t">Seus dados</h2>
   <p class="sub" style="margin-bottom:6px">${C.user?'Seus dias ficam neste aparelho e na nuvem.':'Tudo fica guardado neste aparelho.'} Faça backup de tempos em tempos.</p>
   <p class="sub" style="margin-bottom:14px" id="photoinfo"></p>
@@ -632,6 +636,21 @@ function viewPessoas(){
   ${sb?'':'<p class="note">A sincronização com a nuvem não está disponível agora.</p>'}
   <p class="sub ver">Graças do Dia · versão ${VERSION}</p>`;
   return h;
+}
+/* Uso do app (só para quem mantém): contas, datas e números. Nenhum texto de card chega aqui. */
+const admNew=(a,since)=>a.me?'':Date.parse(a.created)>since?'nova':(a.days>0&&Date.parse(a.first_write||0)>since)?'primeiro card':'';
+const adminNews=()=>Array.isArray(C.admin)&&!!S.admSeen&&C.admin.some(a=>admNew(a,S.admSeen));
+function adminSection(){
+  const l=C.admin;if(!Array.isArray(l))return '';
+  if(C.admBase==null)C.admBase=S.admSeen||Date.now();
+  if(S.admSeen!==undefined&&adminNews()){S.admSeen=Date.now();save()}
+  const dt=t=>{if(!t)return '—';const d=new Date(t);return fmt(isoOf(d.getFullYear(),d.getMonth(),d.getDate()))};
+  const others=l.filter(a=>!a.me),wrote=others.filter(a=>a.days>0).length;
+  return `<h2 class="sec-t">Uso do app</h2>
+    <p class="sub" style="margin-bottom:6px">${l.length} ${l.length===1?'conta':'contas'}${others.length?` · ${wrote} de ${others.length} ${others.length===1?'convidado já escreveu':'convidados já escreveram'}`:''}.</p>
+    <p class="sub" style="margin-bottom:10px;font-size:.85rem">Só você vê esta lista. Ela mostra quem entrou e quanto usou, nunca os textos.</p>
+    <ul class="members">${l.map(a=>{const tag=admNew(a,C.admBase);return `<li><span><b>${esc(a.name)}</b>${a.me?' (você)':''}${tag?` <i class="tagnew">${tag}</i>`:''}<small>${esc(a.email||'')}</small>
+      <small>Entrou em ${dt(a.created)} · último acesso em ${dt(a.last_login)} · ${a.days} ${a.days===1?'dia':'dias'} · ${a.photos} ${a.photos===1?'foto':'fotos'}${a.family_size>1?' · família de '+a.family_size:''}</small></span></li>`}).join('')}</ul>`;
 }
 function cloudSection(){
   if(!sb)return '';
@@ -681,7 +700,7 @@ function viewEntrar(){
     <p class="sub">Não é um diário secreto nem oculto: é uma reunião de pequenas memórias da família, escritas para não esquecer e lembradas juntos, à mesa do jantar ou na oração da noite.</p>
     ${back?'<p class="sub" role="status">Entrando…</p>':'<button class="btn" data-a="gsignin">Entrar com Google</button>'}
     <p class="sub" id="cloudline" role="status" aria-live="polite">${esc(C.msg)}</p>
-    <p class="sub small">Seus dias ficam guardados na sua conta e só você e a sua família podem vê-los. O card livre pode ficar só para você.</p>
+    <p class="sub small">Seus dias ficam guardados na sua conta e só você e a sua família podem vê-los. O card livre pode ficar só para você. Quem mantém o app vê apenas o nome da conta e números de uso (dias e fotos guardados), nunca os textos.</p>
     <p class="sub small ver">Versão ${VERSION}</p></section>`;
 }
 function render(keepFocus){
@@ -694,6 +713,7 @@ function render(keepFocus){
     const cur=b.dataset.v===V.tab&&!(b.dataset.v==='hoje'&&away);
     if(cur)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   });
+  {const tp=document.querySelector('nav.tabs [data-v=pessoas]');if(tp){const nw=V.tab!=='pessoas'&&adminNews();tp.classList.toggle('news',nw);tp.title=nw?'Há novidades no uso do app':''}}
   document.getElementById('tab-hoje').title=away?`Voltar para hoje (${fmt(todayIso())})`:'';
   $app.innerHTML=V.tab==='hoje'?viewHoje():V.tab==='cal'?viewCal():V.tab==='diario'?viewDiario():viewPessoas();
   restoreDraft();
