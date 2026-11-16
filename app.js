@@ -634,7 +634,7 @@ function viewPessoas(){
   <label class="btn sec sm" style="cursor:pointer">${ICON.up}Importar<input type="file" accept="application/json" id="imp" class="sr"></label></div>
   <label class="check"><input type="checkbox" id="bkauto" ${S.bk.auto?'checked':''}><span>Backup automático toda semana<small>Aos domingos, ou na primeira vez que o app for aberto na semana, um arquivo de backup é salvo na pasta de downloads deste aparelho.${S.bk.last?' Último backup: '+fmt(S.bk.last)+'.':''}</small></span></label>
   ${sb?'':'<p class="note">A sincronização com a nuvem não está disponível agora.</p>'}
-  <p class="sub ver">Graças do Dia · versão ${VERSION}</p>`;
+  <p class="sub ver">Graças do Dia · versão ${VERSION} · <a href="privacidade.html">Privacidade</a></p>`;
   return h;
 }
 /* Uso do app (só para quem mantém): contas, datas e números. Nenhum texto de card chega aqui. */
@@ -701,7 +701,7 @@ function viewEntrar(){
     ${back?'<p class="sub" role="status">Entrando…</p>':'<button class="btn" data-a="gsignin">Entrar com Google</button>'}
     <p class="sub" id="cloudline" role="status" aria-live="polite">${esc(C.msg)}</p>
     <p class="sub small">Seus dias ficam guardados na sua conta e só você e a sua família podem vê-los. O card livre pode ficar só para você. Quem mantém o app vê apenas o nome da conta e números de uso (dias e fotos guardados), nunca os textos.</p>
-    <p class="sub small ver">Versão ${VERSION}</p></section>`;
+    <p class="sub small ver">Versão ${VERSION} · <a href="privacidade.html">Privacidade</a></p></section>`;
 }
 function render(keepFocus){
   saveDraft();
