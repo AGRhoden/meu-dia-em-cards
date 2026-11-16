@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meu Dia em Cards</title>
+<meta name="theme-color" content="#f6f5f1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root{
+  --bg:#f6f5f1; --surface:#ffffff; --ink:#131316; --muted:#66666e; --line:#e4e2dc; --line-2:#cfccc4; --wash:#eeece6;
+  --accent:#131316; --accent-ink:#ffffff; --ok:#2a8a5c; --focus:#3b47d6;
+  --fs:1;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --serif:ui-serif,"Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --cond:"Avenir Next Condensed","Arial Narrow","Roboto Condensed","Helvetica Neue Condensed","Franklin Gothic Medium Cond",sans-serif-condensed,"Helvetica Neue",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0d0d0f; --surface:#17171a; --ink:#f3f3f0; --muted:#9d9da6; --line:#26262b; --line-2:#3b3b43; --wash:#1f1f24;
+    --accent:#f3f3f0; --accent-ink:#0d0d0f; --ok:#4cc58c; --focus:#8f9bff;
+  }
+}
+*{box-sizing:border-box}
+html{font-size:calc(100% * var(--fs))}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:64px}
+button,input,textarea{font:inherit;color:inherit}
+button{-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:8px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* topo */
+header.top{max-width:1000px;margin:0 auto;padding:26px clamp(20px,4vw,40px) 0}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-size:.95rem;font-weight:600;letter-spacing:-.01em;margin:0}
+.tools{display:flex;gap:4px;align-items:center}
+.ghost{border:0;background:transparent;color:var(--muted);cursor:pointer;min-width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;font-size:.88rem;transition:background .15s,color .15s}
+.ghost:hover{background:var(--wash);color:var(--ink)}
+.person-chip{color:var(--ink)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+nav.tabs{display:flex;gap:26px;margin-top:22px;border-bottom:1px solid var(--line)}
+nav.tabs button{border:0;background:none;cursor:pointer;padding:10px 0 12px;font-size:.95rem;color:var(--muted);position:relative;font-weight:500}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs button[aria-current=page]{color:var(--ink);font-weight:600}
+nav.tabs button[aria-current=page]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ink);border-radius:2px}
+#tab-hoje{color:var(--ok);font-weight:600}
+#tab-hoje:hover{color:var(--ok)}
+#tab-hoje:not([aria-current]){opacity:.5}
+#tab-hoje:not([aria-current]):hover{opacity:.85}
+#tab-hoje[aria-current=page]::after{background:var(--ok)}
+main{max-width:1000px;margin:0 auto;padding:34px clamp(20px,4vw,40px) 0}
+h2.title{font-size:clamp(1.6rem,3.6vw,2.1rem);font-weight:650;letter-spacing:-.03em;margin:0 0 6px;line-height:1.15}
+.sub{color:var(--muted);margin:0 0 28px;max-width:56ch;font-size:.95rem}
+
+/* botões */
+.btn{border:0;background:var(--accent);color:var(--accent-ink);padding:0 22px;border-radius:999px;font-weight:600;font-size:.95rem;cursor:pointer;min-height:44px;transition:transform .1s,opacity .15s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:hover{opacity:.88}.btn:active{transform:scale(.97)}
+.btn.sec{background:transparent;color:var(--ink);border:1px solid var(--line-2)}
+.btn.sec:hover{background:var(--wash);opacity:1}
+.btn.sm{min-height:36px;padding:0 14px;font-size:.88rem}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ibtn{width:36px;height:36px;border-radius:50%;border:0;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s,transform .1s}
+.ibtn:hover{background:var(--wash);color:var(--ink)}
+.ibtn:active{transform:scale(.92)}
+.ibtn.go{background:var(--accent);color:var(--accent-ink)}
+.ibtn.go:hover{opacity:.85;background:var(--accent);color:var(--accent-ink)}
+.ibtn.lg{width:40px;height:40px}
+.ibtn:disabled{opacity:.3;cursor:default}
+.linkbtn{border:0;background:none;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 8px;min-height:36px;border-radius:10px;font-size:.9rem}
+.linkbtn:hover{background:var(--wash);color:var(--ink)}
+.linkbtn[hidden]{display:none}
+
+/* hoje */
+.dateline{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;margin-bottom:4px}
+.dateline .date{font-family:var(--cond);font-stretch:condensed;font-size:clamp(2.6rem,8vw,4rem);font-weight:300;letter-spacing:.01em;font-variant-numeric:tabular-nums;line-height:1;margin:0}
+.dateline .wd{color:var(--muted);font-size:1rem}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin:26px 0 28px}
+.cards>*{min-width:0}
+.flip{perspective:1400px}
+.inner{display:grid;grid-template-columns:minmax(0,1fr);transform-style:preserve-3d;transition:transform .6s cubic-bezier(.3,.8,.25,1)}
+.flip.flipped .inner{transform:rotateY(180deg)}
+.face,.card{grid-area:1/1;position:relative;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px 18px 14px;display:flex;flex-direction:column;gap:12px;min-height:200px;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:border-color .2s}
+.card{grid-area:auto;transition:transform .7s cubic-bezier(.5,0,.9,.4),opacity .7s ease-in,border-color .2s}
+.card:focus-within,.face:hover{border-color:var(--line-2)}
+.back{transform:rotateY(180deg);background:color-mix(in srgb,var(--ink) 5%,var(--surface))}
+.card h3,.face h3{margin:0;display:flex;gap:9px;align-items:center;min-width:0;height:24px}
+.kic{display:inline-flex;color:var(--ink);flex:none}
+.ttl,input.t{font-family:var(--cond);font-stretch:condensed;font-variant-caps:all-small-caps;font-weight:600;font-size:1.05rem;letter-spacing:.04em;line-height:1.2}
+.ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ruled{width:100%;flex:1;min-height:120px;border:0;resize:none;background:transparent;font-size:1rem;line-height:1.6;padding:0;outline:none}
+.ruled::placeholder,input.t::placeholder{color:var(--ink);opacity:.5}
+input.t{width:100%;border:0;border-bottom:1px solid var(--line-2);background:transparent;padding:0 0 6px;border-radius:0;outline:none;color:var(--ink);text-transform:none}
+input.t:focus{border-bottom-color:var(--ink)}
+.card:focus-within{border-color:var(--ink)}
+.face p.txt{margin:0;flex:1;white-space:pre-wrap;word-break:break-word;font-size:1rem;line-height:1.6}
+.face p.empty{color:var(--muted)}
+.face .corner{position:absolute;bottom:10px;right:12px}
+.face .actions{display:flex;gap:6px;justify-content:flex-end;margin-top:auto;margin-right:-4px}
+.face.front p.txt{padding-bottom:30px}
+.cards .card.sending{opacity:0;transform:translateY(40px) scale(.96)}
+.cards .card.sending:nth-child(2){transition-delay:.06s}.cards .card.sending:nth-child(3){transition-delay:.12s}.cards .card.sending:nth-child(4){transition-delay:.18s}.cards .card.sending:nth-child(5){transition-delay:.24s}
+.status{min-height:1.4em;font-weight:500;color:#c0392b;font-size:.92rem}
+@media (prefers-color-scheme: dark){.status{color:#ff8c7a}}
+.okline{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:22px 0 0;color:var(--muted);font-size:.92rem}
+.okline b{color:var(--ink);font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.okline .tick{color:var(--ok);display:inline-flex}
+.okline .row{margin-left:auto}
+
+
+/* calendário */
+.bar-top{display:flex;gap:12px 16px;align-items:center;flex-wrap:wrap;margin:0 0 24px}
+.seg{display:inline-flex;background:var(--wash);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;padding:0 16px;min-height:34px;border-radius:999px;cursor:pointer;font-weight:500;font-size:.88rem;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:-8px 0 20px;color:var(--muted);font-size:.85rem}
+.legend span{display:inline-flex;gap:7px;align-items:center}
+.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 22px}
+.heading h3{margin:0;font-size:1.5rem;font-weight:650;letter-spacing:-.03em;text-transform:capitalize;text-align:center;line-height:1.15}
+.heading small{display:block;font-size:.85rem;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;margin-top:4px}
+.months{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+@media (min-width:700px){.months{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}}
+.mtile{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:14px;transition:border-color .15s,transform .15s}
+.mtile:hover{border-color:var(--ink);transform:translateY(-2px)}
+.mtile .nm{display:flex;align-items:center;justify-content:space-between;font-family:var(--cond);font-stretch:condensed;font-variant-caps:all-small-caps;letter-spacing:.07em;font-size:1.15rem;font-weight:600}
+.mtile .tick{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.mtile .cnt{font-size:.8rem;color:var(--muted)}
+.mini{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%}
+.mini i{aspect-ratio:1;border-radius:50%;background:var(--line)}
+.mini i.on{background:var(--ink)}
+.mini i.sp{background:none}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(3px,1vw,8px)}
+.wdh{text-align:center;font-family:var(--cond);font-stretch:condensed;font-variant-caps:all-small-caps;font-size:.95rem;letter-spacing:.1em;color:var(--muted);padding:0 0 10px}
+.day{position:relative;aspect-ratio:1/1;min-height:46px;border:0;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:1rem;border-radius:50%;width:100%;max-width:58px;margin:0 auto;font-variant-numeric:tabular-nums;color:var(--ink);transition:background .15s}
+.day:hover:not(:disabled){background:var(--wash)}
+.day.has{background:color-mix(in srgb,var(--cc,var(--ink)) 16%,transparent);font-weight:650}
+.day.has:hover{background:color-mix(in srgb,var(--cc,var(--ink)) 26%,transparent)}
+.day.today{box-shadow:0 0 0 1.5px var(--ink) inset}
+.day:disabled{opacity:.28;cursor:default}
+.dots{display:flex;gap:3px;justify-content:center;min-height:6px}
+.dots .dot{width:6px;height:6px}
+.hint-cal{color:var(--muted);font-size:.85rem;margin:18px 0 0}
+.person{margin:30px 0 0;display:flex;align-items:center;gap:10px;font-weight:600}
+.person .dot{width:12px;height:12px}
+
+/* pessoas */
+.plist{display:grid;margin:8px 0 22px;border-top:1px solid var(--line)}
+.pitem{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid var(--line)}
+.pitem input[type=text]{flex:1;min-width:140px;border:0;background:transparent;padding:6px 0;font-size:1.05rem;font-weight:500;outline-offset:4px}
+.pitem .dot{width:14px;height:14px}
+.badge{font-size:.8rem;color:var(--ok);font-weight:600;display:inline-flex;gap:6px;align-items:center}
+.note{border:1px dashed var(--line-2);border-radius:16px;padding:14px 18px;color:var(--muted);margin-top:30px;font-size:.92rem}
+h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6px}
+
+/* nuvem e família */
+.famrow{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.famrow input{flex:1;min-width:180px;border:1px solid var(--line-2);background:var(--surface);border-radius:12px;padding:0 14px;min-height:40px}
+.famcard{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:16px 18px}
+.famcard code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1.05rem;letter-spacing:.12em;background:var(--wash);border-radius:8px;padding:2px 8px}
+.pname{flex:1;font-size:1.05rem;font-weight:500}
+
+/* diário contínuo */
+.dbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.dbar .title{margin:0}
+.dbar .row{gap:8px}
+.dnote{min-height:1.3em;font-size:.85rem;color:var(--muted);padding:8px 0 0}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:clamp(24px,5vw,48px);box-shadow:0 20px 40px -28px rgba(0,0,0,.25);max-width:680px;margin:16px auto 0}
+.dmonth{font-family:var(--cond);font-stretch:condensed;font-variant-caps:all-small-caps;letter-spacing:.1em;font-size:1.2rem;font-weight:600;color:var(--muted);margin:46px 0 4px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.dmonth:first-child{margin-top:0}
+.dday{padding:24px 0 6px}
+.dhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.dd{font-family:var(--cond);font-stretch:condensed;font-size:2rem;font-weight:300;letter-spacing:.01em;margin-right:12px;font-variant-numeric:tabular-nums}
+.dw{color:var(--muted);font-size:.9rem}
+.dhead .row{gap:2px;flex-wrap:nowrap}
+.sd-who{margin:22px 0 10px;font-family:var(--cond);font-stretch:condensed;font-variant-caps:all-small-caps;font-weight:600;font-size:1.05rem;letter-spacing:.08em;color:var(--muted)}
+.dhead + .sd-who{margin-top:4px}
+.topics{list-style:none;margin:0;padding:0;font-family:var(--serif);font-size:1.12rem;line-height:1.8}
+.topics li{position:relative;padding-left:26px;margin:0 0 14px;white-space:pre-wrap;word-break:break-word}
+.topics li::before{content:"–";position:absolute;left:4px;color:var(--muted)}
+.topics li b{font-weight:700}
+.photos{display:grid;gap:12px;margin:18px 0 6px}
+.photos.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.photos figure{margin:0;position:relative;border-radius:10px;overflow:hidden;background:var(--wash)}
+.photos img{display:block;width:100%;height:auto}
+.photos .rm{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff}
+.photos .rm:hover{background:rgba(0,0,0,.8);color:#fff}
+.sd-empty{color:var(--muted);font-family:var(--serif);font-style:italic;margin:0}
+.sd-foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase}
+@media (prefers-reduced-motion:reduce){.inner,.card,.btn,.mtile{transition:none!important}}
+@media print{
+  :root{--bg:#fff;--surface:#fff;--ink:#111;--muted:#555;--line:#ddd}
+  header.top,.dbar,.dnote,.photos .rm,.dhead .row,#live{display:none!important}
+  body{padding:0}main{padding:0;max-width:none}
+  .sheet{box-shadow:none;border:0;padding:0;max-width:none;margin:0}
+  .dday,.photos figure{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="topbar">
+    <h1 class="brand">Meu dia em cards</h1>
+    <div class="tools">
+      <button class="ghost" data-a="font" data-v="-1" aria-label="Diminuir letras" title="Diminuir letras" style="font-size:.8rem;font-weight:600">A−</button>
+      <button class="ghost" data-a="font" data-v="1" aria-label="Aumentar letras" title="Aumentar letras" style="font-size:1rem;font-weight:600">A+</button>
+      <button class="ghost person-chip" data-a="tab" data-v="pessoas" id="whoami" aria-label="Trocar de pessoa"></button>
+    </div>
+  </div>
+  <nav class="tabs" aria-label="Seções">
+    <button data-a="tab" data-v="hoje" id="tab-hoje">Hoje</button>
+    <button data-a="tab" data-v="cal">Calendário</button>
+    <button data-a="tab" data-v="diario">Diário</button>
+    <button data-a="tab" data-v="pessoas">Pessoas</button>
+  </nav>
+</header>
+<main id="app" tabindex="-1"></main>
+<div class="sr" role="status" aria-live="polite" id="live"></div>
+<input type="file" id="phin" accept="image/*" multiple class="sr" tabindex="-1" aria-hidden="true">
+
+<script src="vendor/supabase.js"></script>
+<script>
+'use strict';
+/* ---------- Ícones ---------- */
+const IC=p=>`<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+const ICON={
+  edit:IC('<path d="M4 20h4L19 9a2.1 2.1 0 00-3-3L5 17z"/><path d="M14.5 7.5l3 3"/>'),
+  check:IC('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  x:IC('<path d="M6 6l12 12M18 6L6 18"/>'),
+  cal:IC('<rect x="4" y="5.5" width="16" height="14.5" rx="3"/><path d="M4 10h16M9 3.5v3M15 3.5v3"/>'),
+  left:IC('<path d="M14.5 6l-6 6 6 6"/>'),
+  right:IC('<path d="M9.5 6l6 6-6 6"/>'),
+  plus:IC('<path d="M12 5v14M5 12h14"/>'),
+  trash:IC('<path d="M5 7h14M9.5 7V5h5v2M7 7l.8 12h8.4L17 7"/>'),
+  down:IC('<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>'),
+  up:IC('<path d="M12 16V5M7 9l5-5 5 5M5 20h14"/>'),
+  book:IC('<path d="M5.5 4.5h10A2.5 2.5 0 0118 7v12.5H8A2.5 2.5 0 015.5 17z"/><path d="M5.5 17A2.5 2.5 0 018 14.5h10"/>'),
+  photo:IC('<path d="M4 8.5A2.5 2.5 0 016.5 6h1.2L9 4h6l1.3 2h1.2A2.5 2.5 0 0120 8.5v8a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 16.5z"/><circle cx="12" cy="12.5" r="3.3"/>'),
+  print:IC('<path d="M7 9V4.5h10V9M7 17.5H5.5A1.5 1.5 0 014 16v-5a2 2 0 012-2h12a2 2 0 012 2v5a1.5 1.5 0 01-1.5 1.5H17"/><path d="M7 14h10v5.5H7z"/>'),
+  back:IC('<path d="M9 6L4 11l5 5"/><path d="M4.5 11H14a5 5 0 010 10h-2"/>'),
+  bom:IC('<circle cx="12" cy="12" r="3.6"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6L18 18M18 6l-1.4 1.4M7.4 16.6L6 18"/>'),
+  descoberta:IC('<path d="M9.5 17.5h5M10.5 20.5h3M12 3.5a5.7 5.7 0 00-3.4 10.3c.6.5.9 1.1.9 1.8v.4h5v-.4c0-.7.3-1.3.9-1.8A5.7 5.7 0 0012 3.5z"/>'),
+  acao:IC('<path d="M12 19.5s-6.8-4.2-6.8-9.5A3.9 3.9 0 0112 7.6 3.9 3.9 0 0118.8 10c0 5.3-6.8 9.5-6.8 9.5z"/>'),
+  acontecimento:IC('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.4 5.2 3.4 8.5s-1 6.1-3.4 8.5c-2.4-2.4-3.4-5.2-3.4-8.5s1-6.1 3.4-8.5z"/>'),
+  custom:IC('<path d="M12 4l1.9 5.1L19 11l-5.1 1.9L12 18l-1.9-5.1L5 11l5.1-1.9z"/>')
+};
+/* ---------- Dados ---------- */
+const KINDS=[
+  {k:'bom',t:'Uma coisa boa',h:'Algo digno para agradecer.'},
+  {k:'descoberta',t:'Uma descoberta surpreendente',h:'Algo que você aprendeu, notou ou descobriu hoje e que te surpreendeu.'},
+  {k:'acao',t:'Uma ação muito boa',h:'Caridade fraterna, prática de virtude, ação concreta: algo que foi feito.'},
+  {k:'acontecimento',t:'Acontecimento relevante do dia',h:'O que aconteceu no dia que seja digno de menção e lembrança.'},
+  {k:'custom',t:'Card livre',h:'Algo especial que não cabe nos outros.',custom:true}
+];
+const COLORS=['#d9534f','#3d7be8','#2fa56e','#9b5de5','#e8a317','#17a2b8','#d6428a','#7a8794'];
+const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const DIAS=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+const STORE='meu-dia-em-cards-v1';
+/* limites das fotos */
+const MAX_PHOTOS_DAY=6;            // por pessoa, por dia
+const MAX_INPUT_BYTES=25*1024*1024; // foto original aceita
+const TARGET_BYTES=350*1024;       // alvo depois da redução
+const MAX_EDGE=1280;               // maior lado, em pixels
+
+const pad=n=>String(n).padStart(2,'0');
+const uid=()=>(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2));
+const isoOf=(y,m,d)=>`${y}-${pad(m+1)}-${pad(d)}`;
+const todayIso=()=>{const n=new Date();return isoOf(n.getFullYear(),n.getMonth(),n.getDate())};
+const fmt=iso=>{const [y,m,d]=iso.split('-');return `${d}/${m}/${y}`};
+const parse=iso=>{const [y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d)};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(STORE));if(s&&Array.isArray(s.profiles)&&s.profiles.length)return s}catch(e){}
+  const id=uid();
+  return {v:1,profiles:[{id,name:'Eu',color:COLORS[0],blank:true}],active:id,days:{},font:1,dirty:{}};
+}
+let S=load();
+if(!S.dirty)S.dirty={};
+const save=()=>{try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){alert('Não foi possível salvar neste aparelho (armazenamento cheio ou bloqueado).')}};
+const me=()=>S.profiles.find(p=>p.id===S.active)||S.profiles.find(p=>!p.remote)||S.profiles[0];
+const entryOf=(pid,iso)=>(S.days[pid]||{})[iso];
+const hasContent=en=>!!en&&(['bom','descoberta','acao','acontecimento'].some(k=>(en[k]||'').trim())||((en.custom&&(en.custom.texto||'').trim())));
+
+/* ---------- Fotos: IndexedDB ---------- */
+let _db;
+const idb=()=>_db||(_db=new Promise((res,rej)=>{
+  if(!window.indexedDB)return rej(new Error('Este navegador não permite guardar fotos.'));
+  const r=indexedDB.open('meu-dia-em-cards',1);
+  r.onupgradeneeded=()=>{const s=r.result.createObjectStore('photos',{keyPath:'id'});s.createIndex('pd',['pid','date']);s.createIndex('pid','pid')};
+  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error||new Error('Não foi possível abrir o banco de fotos.'));
+}));
+const rq=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+async function store(mode){const db=await idb();const t=db.transaction('photos',mode);return {s:t.objectStore('photos'),done:new Promise((res,rej)=>{t.oncomplete=res;t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})}}
+async function photosFor(pid,date){const {s}=await store('readonly');const l=await rq(s.index('pd').getAll(IDBKeyRange.only([pid,date])));return l.sort((a,b)=>a.ts-b.ts)}
+async function getPhoto(id){const {s}=await store('readonly');return rq(s.get(id))}
+async function allPhotos(){const {s}=await store('readonly');return rq(s.getAll())}
+async function putPhoto(rec){const {s,done}=await store('readwrite');s.put(rec);await done}
+async function delPhoto(id){const {s,done}=await store('readwrite');s.delete(id);await done}
+async function delPhotosOf(pid){const {s,done}=await store('readwrite');const keys=await rq(s.index('pid').getAllKeys(IDBKeyRange.only(pid)));keys.forEach(k=>s.delete(k));await done}
+async function clearPhotos(){const {s,done}=await store('readwrite');s.clear();await done}
+
+/* Reduz a foto no próprio aparelho: lado maior ≤ 1280 px, JPEG, alvo ≈ 350 KB */
+async function shrink(file){
+  if(!file.type.startsWith('image/'))throw new Error('“'+file.name+'” não é uma imagem.');
+  if(file.size>MAX_INPUT_BYTES)throw new Error('“'+file.name+'” é grande demais (máximo 25 MB).');
+  let bmp;
+  try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}
+  catch(e){bmp=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('Não consegui abrir “'+file.name+'”.'));i.src=URL.createObjectURL(file)})}
+  const w0=bmp.width||bmp.naturalWidth,h0=bmp.height||bmp.naturalHeight;
+  let edge=MAX_EDGE,q=.76,blob,w,h;
+  for(let i=0;i<6;i++){
+    const sc=Math.min(1,edge/Math.max(w0,h0));w=Math.max(1,Math.round(w0*sc));h=Math.max(1,Math.round(h0*sc));
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(bmp,0,0,w,h);
+    blob=await new Promise(r=>c.toBlob(r,'image/jpeg',q));
+    if(blob&&blob.size<=TARGET_BYTES)break;
+    q=Math.max(.5,q-.07);edge=Math.round(edge*.85);
+  }
+  if(bmp.close)bmp.close();
+  if(!blob)throw new Error('Não consegui reduzir “'+file.name+'”.');
+  return {blob,w,h};
+}
+const blobToDataURL=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(b)});
+
+/* ---------- Nuvem (Supabase): login Google, sincronização e família ---------- */
+const CLOUD={url:'https://pblqerecgcyyodbdcswe.supabase.co',key:'sb_publishable_Pso0Ju-3VNcaQTSKhmPVtg_YyxHAXYZ'};
+const sb=(window.supabase&&CLOUD.url)?window.supabase.createClient(CLOUD.url,CLOUD.key,{auth:{flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
+const C={user:null,family:null,msg:'',err:false,busy:false,pendingView:false};
+let syncTimer=null;
+const scheduleSync=()=>{if(!sb||!C.user)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,1200)};
+const markDirty=k=>{S.dirty[k]=1;save();scheduleSync()};
+const cloudLine=()=>{const el=document.getElementById('cloudline');if(el){el.textContent=C.msg;el.style.color=C.err?'#c0392b':''}};
+const hhmm=()=>{const n=new Date();return pad(n.getHours())+':'+pad(n.getMinutes())};
+
+function markAllDirty(){
+  S.profiles.forEach(p=>{if(!p.remote)S.dirty['p:'+p.id]=1});
+  Object.keys(S.days).forEach(pid=>{const p=S.profiles.find(x=>x.id===pid);if(p&&!p.remote)Object.keys(S.days[pid]).forEach(d=>{S.dirty['e:'+pid+'|'+d]=1})});
+  allPhotos().then(l=>{l.forEach(f=>{if(!f.synced)S.dirty['ph:'+f.id]=1});save()}).catch(()=>{});
+}
+
+async function pushDirty(){
+  const order=k=>({p:0,e:1,ph:2,phd:3,pd:4})[k.slice(0,k.indexOf(':'))];
+  const keys=Object.keys(S.dirty).sort((a,b)=>order(a)-order(b));
+  for(const k of keys){
+    const t=k.slice(0,k.indexOf(':')),rest=k.slice(k.indexOf(':')+1);
+    if(t==='p'){
+      const p=S.profiles.find(x=>x.id===rest);
+      if(p&&!p.remote){const {error}=await sb.from('people').upsert({id:p.id,owner_id:C.user.id,name:p.name.slice(0,60),color:p.color,family_id:C.family?C.family.id:null});if(error)throw error;p.synced=true;delete p.blank}
+    }else if(t==='e'){
+      const [pid,date]=rest.split('|'),p=S.profiles.find(x=>x.id===pid),en=entryOf(pid,date);
+      if(p&&!p.remote){
+        if(!p.synced){const pr=await sb.from('people').upsert({id:p.id,owner_id:C.user.id,name:p.name.slice(0,60),color:p.color,family_id:C.family?C.family.id:null});if(pr.error)throw pr.error;p.synced=true;delete p.blank;delete S.dirty['p:'+p.id]}
+        if(hasContent(en)){
+          const c=en.custom||{};
+          const {error}=await sb.from('entries').upsert({person_id:pid,date,bom:en.bom||'',descoberta:en.descoberta||'',acao:en.acao||'',acontecimento:en.acontecimento||'',custom_titulo:c.titulo||'',custom_texto:c.texto||''});
+          if(error)throw error;
+        }else{const {error}=await sb.from('entries').delete().eq('person_id',pid).eq('date',date);if(error)throw error}
+      }
+    }else if(t==='ph'){
+      const rec=await getPhoto(rest);
+      if(rec){
+        const path=`${rec.pid}/${rec.id}.jpg`;
+        const up=await sb.storage.from('photos').upload(path,rec.blob,{contentType:'image/jpeg',upsert:true});if(up.error)throw up.error;
+        const ins=await sb.from('photos').upsert({id:rec.id,person_id:rec.pid,date:rec.date,path,w:rec.w,h:rec.h,bytes:rec.blob.size});if(ins.error)throw ins.error;
+        rec.synced=true;await putPhoto(rec);
+      }
+    }else if(t==='phd'){
+      const [pid,id]=rest.split('|');
+      const r1=await sb.storage.from('photos').remove([`${pid}/${id}.jpg`]);if(r1.error)throw r1.error;
+      const r2=await sb.from('photos').delete().eq('id',id);if(r2.error)throw r2.error;
+    }else if(t==='pd'){
+      const l=await sb.storage.from('photos').list(rest,{limit:1000});
+      if(!l.error&&l.data&&l.data.length){await sb.storage.from('photos').remove(l.data.map(o=>`${rest}/${o.name}`))}
+      const {error}=await sb.from('people').delete().eq('id',rest);if(error)throw error;
+    }
+    delete S.dirty[k];save();
+  }
+}
+
+async function pullAll(){
+  const uid=C.user.id;
+  const pr=await sb.from('people').select('id,owner_id,name,color');if(pr.error)throw pr.error;
+  const remoteIds=new Set(pr.data.map(r=>r.id));
+  const hasMine=pr.data.some(r=>r.owner_id===uid);
+  for(const r of pr.data){
+    let p=S.profiles.find(x=>x.id===r.id);
+    if(!p){p={id:r.id,name:r.name,color:r.color};S.profiles.push(p)}
+    else if(!S.dirty['p:'+r.id]){p.name=r.name;p.color=r.color}
+    p.remote=r.owner_id!==uid;p.synced=true;delete p.blank;
+  }
+  // conta nova (sem pessoas na nuvem): sobe a pessoa inicial
+  if(!hasMine)S.profiles.forEach(p=>{if(!p.remote&&!p.synced)S.dirty['p:'+p.id]=1});
+  // cores diferentes dentro da família
+  const taken=new Set(S.profiles.filter(p=>p.remote).map(p=>p.color));
+  S.profiles.forEach(p=>{if(!p.remote&&taken.has(p.color)){const c=COLORS.find(c=>!S.profiles.some(q=>q.color===c));if(c){p.color=c;S.dirty['p:'+p.id]=1;setTimeout(scheduleSync,0)}}});
+  // a pessoa inicial vazia some se a conta já tem pessoas na nuvem
+  if(hasMine)S.profiles=S.profiles.filter(p=>!(p.blank&&!p.synced));
+  // pessoas removidas em outro lugar (ou família deixada)
+  S.profiles=S.profiles.filter(p=>!p.synced||remoteIds.has(p.id)||S.dirty['p:'+p.id]);
+  if(!S.profiles.some(p=>!p.remote)){const id=uid_();S.profiles.push({id,name:'Eu',color:COLORS[0]});S.active=id;S.dirty['p:'+id]=1}
+  else{delete (S.profiles.find(p=>p.blank)||{}).blank}
+  if(!S.profiles.some(p=>p.id===S.active&&!p.remote))S.active=S.profiles.find(p=>!p.remote).id;
+  const ids=[...remoteIds];
+  // dias
+  let rows=[];
+  if(ids.length)for(let from=0;;from+=1000){
+    const r=await sb.from('entries').select('*').in('person_id',ids).range(from,from+999);if(r.error)throw r.error;
+    rows=rows.concat(r.data);if(r.data.length<1000)break;
+  }
+  const have=new Set();
+  rows.forEach(r=>{
+    const k=r.person_id+'|'+r.date;have.add(k);if(S.dirty['e:'+k])return;
+    (S.days[r.person_id]=S.days[r.person_id]||{})[r.date]={bom:r.bom,descoberta:r.descoberta,acao:r.acao,acontecimento:r.acontecimento,custom:{titulo:r.custom_titulo,texto:r.custom_texto}};
+  });
+  ids.forEach(pid=>{const m=S.days[pid]||{};Object.keys(m).forEach(d=>{if(!have.has(pid+'|'+d)&&!S.dirty['e:'+pid+'|'+d])delete m[d]})});
+  Object.keys(S.days).forEach(pid=>{if(!S.profiles.some(p=>p.id===pid))delete S.days[pid]});
+  // fotos
+  try{
+    let prow=[];
+    if(ids.length)for(let from=0;;from+=1000){
+      const r=await sb.from('photos').select('id,person_id,date,path,w,h,created_at').in('person_id',ids).range(from,from+999);if(r.error)throw r.error;
+      prow=prow.concat(r.data);if(r.data.length<1000)break;
+    }
+    const local=await allPhotos(),localIds=new Set(local.map(f=>f.id)),remoteP=new Set(prow.map(r=>r.id));
+    for(const r of prow){
+      if(localIds.has(r.id)||S.dirty['phd:'+r.person_id+'|'+r.id])continue;
+      const d=await sb.storage.from('photos').download(r.path);
+      if(!d.error&&d.data)await putPhoto({id:r.id,pid:r.person_id,date:r.date,w:r.w,h:r.h,ts:Date.parse(r.created_at),blob:d.data,synced:true});
+    }
+    for(const f of local){if(f.synced&&!remoteP.has(f.id)&&!S.dirty['ph:'+f.id])await delPhoto(f.id)}
+  }catch(e){console.warn('fotos',e)}
+}
+const uid_=()=>uid();
+
+async function syncNow(){
+  if(!sb||!C.user||C.busy)return;
+  C.busy=true;C.msg='Sincronizando…';C.err=false;cloudLine();
+  let failure=null;
+  try{await pushDirty()}catch(e){failure=e}
+  try{await pullAll()}catch(e){failure=failure||e}
+  try{const r=await sb.rpc('get_my_family');C.family=r.error?C.family:(r.data||null)}catch(e){}
+  if(failure){console.warn(failure);C.err=true;C.msg=navigator.onLine?'Não consegui sincronizar agora. Tento de novo em instantes.':'Sem conexão. Vai sincronizar quando voltar.'}
+  else{C.msg='Sincronizado às '+hhmm()}
+  C.busy=false;save();cloudLine();safeRender();
+  if(failure)setTimeout(syncNow,30000);
+  else if(Object.keys(S.dirty).length)setTimeout(syncNow,300);   // a leitura criou pendências (ex.: pessoa inicial)
+}
+function safeRender(){
+  // não redesenha enquanto a pessoa está escrevendo ou editando um card
+  const a=document.activeElement,typing=a&&/^(TEXTAREA|INPUT)$/.test(a.tagName)&&$app.contains(a);
+  const compose=document.getElementById('compose'),composing=compose&&[...compose.querySelectorAll('[data-f]')].some(x=>x.value.trim());
+  if(typing||composing||document.querySelector('.flip.flipped')){C.pendingView=true;return}
+  C.pendingView=false;render(true);
+}
+async function afterLogin(user){
+  C.user=user;
+  if(S.cloudUser&&S.cloudUser!==user.id){
+    if(!confirm('Este aparelho está ligado a outra conta Google. Entrar com esta conta troca os dados do aparelho pelos dela (os da outra conta continuam guardados na nuvem). Continuar?')){C.user=null;await sb.auth.signOut();return}
+    try{await clearPhotos()}catch(e){}
+    const id=uid();S={v:1,profiles:[{id,name:'Eu',color:COLORS[0],blank:true}],active:id,days:{},font:S.font||1,dirty:{}};
+  }
+  const gname=String((user.user_metadata&&(user.user_metadata.name||user.user_metadata.full_name))||'').trim().split(/\s+/)[0];
+  if(!S.cloudUser){
+    const bp=S.profiles.find(p=>p.blank&&p.name==='Eu');if(bp&&gname)bp.name=gname.slice(0,30);
+    S.cloudUser=user.id;
+    let photos=[];try{photos=await allPhotos()}catch(e){}
+    const hasData=Object.values(S.days).some(m=>Object.keys(m).length)||S.profiles.length>1||photos.length>0||S.profiles.some(p=>!p.blank);
+    if(hasData)markAllDirty();
+  }
+  save();render(true);syncNow();
+}
+async function cloudSignIn(){
+  C.msg='';
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});
+  if(error){C.err=true;C.msg='Não foi possível iniciar o login: '+error.message;cloudLine()}
+}
+async function cloudSignOut(){await sb.auth.signOut();C.user=null;C.family=null;C.msg='';render(true)}
+async function famAct(fn,okMsg){
+  C.err=false;C.msg='Aguarde…';cloudLine();
+  const r=await fn();
+  if(r.error){C.err=true;C.msg=(r.error.message||'Erro').replace(/^.*?:\s*/,'');cloudLine();return}
+  C.msg=okMsg;await syncNow();
+}
+if(sb){
+  sb.auth.onAuthStateChange((ev,session)=>{
+    if(session&&session.user){if(!C.user||C.user.id!==session.user.id)setTimeout(()=>afterLogin(session.user),0)}
+    else if(ev==='SIGNED_OUT'){C.user=null;C.family=null}
+  });
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});
+  window.addEventListener('online',()=>syncNow());
+  setInterval(()=>{if(!document.hidden)syncNow()},60000);
+}
+
+/* ---------- Estado de tela ---------- */
+const now=new Date();
+const V={tab:'hoje',date:todayIso(),scope:'eu',dwho:null,photoTarget:null,
+  cal:{lvl:'month',y:now.getFullYear(),m:now.getMonth(),d:null},saving:false,msg:''};
+const $app=document.getElementById('app');
+const live=t=>{const l=document.getElementById('live');l.textContent='';setTimeout(()=>l.textContent=t,30)};
+const ibtn=(a,icon,label,extra='',cls='')=>`<button class="ibtn ${cls}" data-a="${a}" ${extra} aria-label="${esc(label)}" title="${esc(label)}">${icon}</button>`;
+
+/* ---------- Cards ---------- */
+function titleOf(kind,en){return kind.custom?((en&&en.custom&&en.custom.titulo)||'Card livre'):kind.t}
+function head(kind,en){return `<h3><span class="kic" aria-hidden="true">${ICON[kind.k]}</span><span class="ttl" title="${esc(titleOf(kind,en))}">${esc(titleOf(kind,en))}</span></h3>`}
+function valueOf(kind,en){
+  if(!en)return kind.custom?{titulo:'',texto:''}:'';
+  if(kind.custom)return en.custom||{titulo:'',texto:''};
+  return en[kind.k]||'';
+}
+function composeCard(kind,idp){
+  const lab=`${idp}-${kind.k}`;
+  if(kind.custom){
+    return `<article class="card k-${kind.k}" data-k="${kind.k}">
+      <h3><span class="kic" aria-hidden="true">${ICON[kind.k]}</span><label class="ttl" for="${lab}-t">${kind.t}</label></h3>
+      <input class="t" id="${lab}-t" data-f="custom-t" maxlength="40" placeholder="Dê um título (opcional)">
+      <label class="sr" for="${lab}">Texto do card livre</label>
+      <textarea class="ruled" id="${lab}" data-f="custom-x" placeholder="${esc(kind.h)}"></textarea></article>`;
+  }
+  return `<article class="card k-${kind.k}" data-k="${kind.k}">
+    <h3><span class="kic" aria-hidden="true">${ICON[kind.k]}</span><label class="ttl" for="${lab}">${kind.t}</label></h3>
+    <textarea class="ruled" id="${lab}" data-f="${kind.k}" placeholder="${esc(kind.h)}"></textarea></article>`;
+}
+function flipCard(kind,en,pid,iso,editable){
+  const v=valueOf(kind,en);
+  const text=kind.custom?v.texto:v;
+  const key=`${pid}|${iso}|${kind.k}`;
+  const lab='f'+key.replace(/[^a-z0-9]/gi,'');
+  const ttl=titleOf(kind,en);
+  const front=`<div class="face front">${head(kind,en)}
+      ${text.trim()?`<p class="txt">${esc(text)}</p>`:`<p class="txt empty">Em branco</p>`}
+      ${editable?`<span class="corner">${ibtn('flip',ICON.edit,`Editar “${ttl}” (virar o card)`)}</span>`:''}</div>`;
+  if(!editable)return `<div class="flip"><div class="inner">${front}</div></div>`;
+  const back=`<div class="face back" inert>
+      ${kind.custom?`<h3><span class="kic" aria-hidden="true">${ICON.custom}</span><input class="t" data-f="custom-t" maxlength="40" aria-label="Título do card livre" placeholder="Card livre" value="${esc(v.titulo)}" style="padding-bottom:0;border:0;min-width:0"></h3>`:`<h3><span class="kic" aria-hidden="true">${ICON[kind.k]}</span><label class="ttl" for="${lab}">${kind.t}</label></h3>`}
+      <textarea class="ruled" id="${lab}" data-f="${kind.custom?'custom-x':kind.k}" ${kind.custom?'aria-label="Texto do card livre"':''} placeholder="${esc(kind.h)}">${esc(text)}</textarea>
+      <div class="actions">${ibtn('flip',ICON.x,'Cancelar')}${ibtn('fixsave',ICON.check,'Salvar correção',`data-pid="${pid}" data-date="${iso}" data-k="${kind.k}"`,'go lg')}</div></div>`;
+  return `<div class="flip" data-key="${key}"><div class="inner">${front}${back}</div></div>`;
+}
+function readCards(pid,iso,editable){
+  const en=entryOf(pid,iso);
+  return KINDS.filter(k=>editable||(k.custom?(en&&en.custom&&(en.custom.texto||'').trim()):(en&&(en[k.k]||'').trim())))
+    .map(k=>flipCard(k,en,pid,iso,editable)).join('');
+}
+
+/* ---------- Views ---------- */
+function viewHoje(){
+  const p=me(),iso=V.date,en=entryOf(p.id,iso),d=parse(iso),away=iso!==todayIso();
+  const saved=hasContent(en);
+  let h=`<div class="dateline"><h2 class="title date">${fmt(iso)}</h2>
+    <span class="wd">${DIAS[d.getDay()]}</span></div>`;
+  if(saved){
+    h+=`<div class="okline"><b><span class="tick">${ICON.check}</span>Guardado</b><span>Vire um card para corrigir.</span>
+    <span class="row"><button class="linkbtn" data-a="opencal" data-date="${iso}">${ICON.cal}Ver no calendário</button><button class="linkbtn" data-a="tab" data-v="diario">${ICON.book}Ver no diário</button></span></div>
+    <div class="cards">${readCards(p.id,iso,true)}</div>`;
+  }else{
+    h+=`<div class="cards" id="compose">${KINDS.map(k=>composeCard(k,'new')).join('')}</div>
+    <div class="row"><button class="btn" data-a="guardar" ${V.saving?'disabled':''}>Guardar</button><span class="status" id="status" role="status">${esc(V.msg)}</span></div>`;
+  }
+  return h;
+}
+
+function peopleInScope(){return V.scope==='familia'?S.profiles:[me()]}
+function daysWith(iso){return peopleInScope().filter(p=>hasContent(entryOf(p.id,iso)))}
+function monthCount(y,m){
+  const n=new Date(y,m+1,0).getDate();let c=0;
+  for(let d=1;d<=n;d++)if(daysWith(isoOf(y,m,d)).length)c++;
+  return c;
+}
+function scopeSeg(){
+  if(S.profiles.length<2)return '';
+  return `<div class="seg" role="group" aria-label="Quem mostrar">
+    <button data-a="scope" data-v="eu" aria-pressed="${V.scope==='eu'}">Só ${esc(me().name)}</button>
+    <button data-a="scope" data-v="familia" aria-pressed="${V.scope==='familia'}">Família</button></div>`;
+}
+function legend(){
+  if(V.scope!=='familia')return '';
+  return `<div class="legend">${S.profiles.map(p=>`<span><i class="dot" style="background:${p.color}"></i>${esc(p.name)}</span>`).join('')}</div>`;
+}
+function viewCal(){
+  const c=V.cal,t=todayIso();let h='';
+  const back=c.lvl==='month'?`<button class="linkbtn" data-a="calgo" data-l="year">${ICON.left}${c.y}</button>`
+    :c.lvl==='day'?`<button class="linkbtn" data-a="calgo" data-l="month">${ICON.left}${MESES[c.m]}</button>`:'';
+  const thisMonth=c.lvl==='month'&&(c.y!==now.getFullYear()||c.m!==now.getMonth());
+  h+=`<div class="bar-top">${back}${scopeSeg()}${thisMonth?`<button class="linkbtn" data-a="calnow">Este mês</button>`:''}</div>`;
+  h+=legend();
+  if(c.lvl==='year'){
+    let done=0;
+    const cells=MESES.map((nm,m)=>{
+      const n=new Date(c.y,m+1,0).getDate(),cnt=monthCount(c.y,m),off=new Date(c.y,m,1).getDay();if(cnt>0)done++;
+      let mini='';for(let i=0;i<off;i++)mini+='<i class="sp"></i>';
+      for(let d=1;d<=n;d++)mini+=`<i class="${daysWith(isoOf(c.y,m,d)).length?'on':''}"></i>`;
+      return `<button class="mtile" data-a="openmonth" data-m="${m}" aria-label="${nm} de ${c.y}: ${cnt} de ${n} dias registrados${cnt>0?', mês completo':''}">
+        <span class="nm">${nm}${cnt>0?'<i class="tick" aria-hidden="true"></i>':''}</span><span class="mini" aria-hidden="true">${mini}</span><span class="cnt">${cnt} de ${n} dias</span></button>`;
+    }).join('');
+    h+=`<div class="heading">${ibtn('yr',ICON.left,'Ano anterior','data-v="-1"','lg')}
+      <h3>${c.y}<small>${done} de 12 meses com registros${done===12?' · ano completo':''}</small></h3>
+      ${ibtn('yr',ICON.right,'Próximo ano','data-v="1"','lg')}</div>
+      <div class="months">${cells}</div>
+      <p class="hint-cal">Um mês conta como completo quando tem pelo menos 1 dia guardado.</p>`;
+  }else if(c.lvl==='month'){
+    const n=new Date(c.y,c.m+1,0).getDate(),off=new Date(c.y,c.m,1).getDay();
+    let cells='';
+    for(let i=0;i<off;i++)cells+='<div></div>';
+    for(let d=1;d<=n;d++){
+      const iso=isoOf(c.y,c.m,d),who=daysWith(iso),future=iso>t;
+      const cc=who.length===1?who[0].color:'var(--muted)';
+      cells+=`<button class="day ${who.length?'has':''} ${iso===t?'today':''}" style="--cc:${cc}" data-a="openday" data-d="${d}" ${future?'disabled':''}
+        aria-label="${d} de ${MESES[c.m]}, ${iso===t?'hoje, ':''}${who.length?'registrado'+(V.scope==='familia'?' por '+who.map(p=>p.name).join(', '):''):'sem registro'}">
+        <span>${d}</span><span class="dots" aria-hidden="true">${V.scope==='familia'?who.map(p=>`<i class="dot" style="background:${p.color}"></i>`).join(''):''}</span></button>`;
+    }
+    h+=`<div class="heading">${ibtn('mo',ICON.left,'Mês anterior','data-v="-1"','lg')}
+      <h3>${MESES[c.m]} ${c.y}<small>${monthCount(c.y,c.m)} de ${n} dias guardados</small></h3>
+      ${ibtn('mo',ICON.right,'Próximo mês','data-v="1"','lg')}</div>
+      <div class="grid">${DIAS.map(x=>`<div class="wdh" aria-hidden="true">${x.slice(0,3)}</div>`).join('')}${cells}</div>
+      <p class="hint-cal">Toque em um dia para ver ou preencher os cards dele.</p>`;
+  }else{
+    const iso=isoOf(c.y,c.m,c.d),d=parse(iso),next=iso>=t;
+    h+=`<div class="heading">${ibtn('dy',ICON.left,'Dia anterior','data-v="-1"','lg')}
+      <h3>${fmt(iso)}<small>${DIAS[d.getDay()]}</small></h3>
+      ${ibtn('dy',ICON.right,'Próximo dia','data-v="1"'+(next?' disabled':''),'lg')}</div>`;
+    let shown=false;
+    peopleInScope().forEach(p=>{
+      const en=entryOf(p.id,iso),editable=p.id===S.active;
+      if(!hasContent(en)&&!editable)return;
+      shown=true;
+      if(V.scope==='familia'||!hasContent(en))h+=`<div class="person"><i class="dot" style="background:${p.color}"></i>${esc(p.name)}</div>`;
+      if(hasContent(en))h+=`<div class="cards" style="margin-top:14px">${readCards(p.id,iso,editable)}</div>`;
+      else h+=`<p class="sub" style="margin-top:6px">Nada guardado neste dia.</p><button class="btn sm" data-a="gohoje" data-date="${iso}">Preencher este dia</button>`;
+    });
+    if(!shown)h+='<p class="sub" style="margin-top:14px">Nada guardado neste dia.</p>';
+  }
+  return h;
+}
+function viewPessoas(){
+  let h=`<h2 class="title">Pessoas</h2><p class="sub">Cada pessoa tem o próprio calendário. Quem usa o mesmo aparelho escolhe aqui quem está escrevendo agora.</p><div class="plist">`;
+  S.profiles.forEach(p=>{
+    const on=p.id===S.active;
+    if(p.remote){h+=`<div class="pitem"><i class="dot" style="background:${p.color}"></i><span class="pname">${esc(p.name)}</span><span class="badge" style="color:var(--muted)">da família</span></div>`;return}
+    h+=`<div class="pitem"><i class="dot" style="background:${p.color}"></i>
+      <label class="sr" for="n-${p.id}">Nome</label><input type="text" id="n-${p.id}" value="${esc(p.name)}" maxlength="30" data-a="rename" data-pid="${p.id}">
+      ${on?`<span class="badge">${ICON.check}Escrevendo agora</span>`:`<button class="btn sec sm" data-a="setme" data-pid="${p.id}">Usar esta pessoa</button>`}
+      ${S.profiles.filter(x=>!x.remote).length>1?ibtn('delp',ICON.trash,`Remover ${p.name}`,`data-pid="${p.id}"`):''}</div>`;
+  });
+  h+=`</div><button class="btn sec sm" data-a="addp">${ICON.plus}Adicionar pessoa</button>
+  ${cloudSection()}
+  <h2 class="sec-t">Seus dados</h2>
+  <p class="sub" style="margin-bottom:6px">${C.user?'Seus dias ficam neste aparelho e na nuvem.':'Tudo fica guardado neste aparelho.'} Faça backup de tempos em tempos.</p>
+  <p class="sub" style="margin-bottom:14px" id="photoinfo"></p>
+  <div class="row"><button class="btn sec sm" data-a="export">${ICON.down}Exportar</button>
+  <label class="btn sec sm" style="cursor:pointer">${ICON.up}Importar<input type="file" accept="application/json" id="imp" class="sr"></label></div>
+  ${sb?'':'<p class="note">A sincronização com a nuvem não está disponível agora.</p>'}`;
+  return h;
+}
+function cloudSection(){
+  if(!sb)return '';
+  if(!C.user)return `<h2 class="sec-t">Conta e família</h2>
+    <p class="sub" style="margin-bottom:14px">Entre com sua conta Google para sincronizar entre aparelhos e compartilhar o diário com a família.</p>
+    <button class="btn" data-a="gsignin">Entrar com Google</button><p class="sub" id="cloudline" role="status" aria-live="polite" style="margin:10px 0 0">${esc(C.msg)}</p>`;
+  const f=C.family;
+  let h=`<h2 class="sec-t">Conta e família</h2>
+    <div class="row" style="margin-bottom:4px"><span>${esc(C.user.email||'Conta Google')}</span>
+    <button class="linkbtn" data-a="syncnow">Sincronizar agora</button><button class="linkbtn" data-a="gsignout">Sair da conta</button></div>
+    <p class="sub" id="cloudline" role="status" aria-live="polite" style="margin:0 0 16px">${esc(C.msg)}</p>`;
+  if(f){
+    h+=`<div class="famcard"><div><b>${esc(f.name)}</b> · ${f.members} ${f.members===1?'pessoa':'pessoas'} com conta</div>
+      <div class="row" style="margin-top:6px">Código de convite: <code>${esc(f.code)}</code><button class="linkbtn" data-a="famcopy">Copiar</button></div>
+      <p class="sub" style="margin:8px 0 10px;font-size:.85rem">Quem entrar com este código passa a ver os dias de todos. Cada pessoa edita só o que é dela.</p>
+      <button class="linkbtn" data-a="famleave">Sair da família</button></div>`;
+  }else{
+    h+=`<div class="famrow"><label class="sr" for="famname">Nome da família</label><input id="famname" maxlength="60" placeholder="Nome da família"><button class="btn sec sm" data-a="famcreate">Criar família</button></div>
+      <div class="famrow"><label class="sr" for="famcode">Código de convite</label><input id="famcode" maxlength="8" placeholder="Código de convite" autocapitalize="characters" autocomplete="off"><button class="btn sec sm" data-a="famjoin">Entrar na família</button></div>`;
+  }
+  return h;
+}
+
+function render(keepFocus){
+  document.getElementById('whoami').innerHTML=`<i class="dot" style="background:${me().color}"></i>${esc(me().name)}`;
+  const away=V.tab==='hoje'&&V.date!==todayIso();
+  document.querySelectorAll('nav.tabs button').forEach(b=>{
+    const cur=b.dataset.v===V.tab&&!(b.dataset.v==='hoje'&&away);
+    if(cur)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+  });
+  document.getElementById('tab-hoje').title=away?`Voltar para hoje (${fmt(todayIso())})`:'';
+  $app.innerHTML=V.tab==='hoje'?viewHoje():V.tab==='cal'?viewCal():V.tab==='diario'?viewDiario():viewPessoas();
+  document.documentElement.style.setProperty('--fs',S.font||1);
+  const imp=document.getElementById('imp');if(imp)imp.addEventListener('change',doImport);
+  if(V.tab==='pessoas')photoInfo();
+  if(V.tab==='diario')fillDiary();
+  if(!keepFocus)window.scrollTo(0,0);
+}
+async function photoInfo(){
+  const el=document.getElementById('photoinfo');if(!el)return;
+  try{
+    const l=await allPhotos(),mb=l.reduce((a,p)=>a+p.blob.size,0)/1048576;
+    if(document.getElementById('photoinfo'))document.getElementById('photoinfo').textContent=l.length?`${l.length} ${l.length===1?'foto':'fotos'} no diário · ${mb.toFixed(1)} MB neste aparelho. As fotos são reduzidas automaticamente (até ${MAX_PHOTOS_DAY} por pessoa em cada dia).`:`Fotos do diário são reduzidas automaticamente (até ${MAX_PHOTOS_DAY} por pessoa em cada dia).`;
+  }catch(e){}
+}
+
+/* ---------- Diário contínuo: todos os dias com registro, sempre atualizado ---------- */
+let diaryUrls=[];
+const topicsOf=en=>{
+  const o=[];
+  ['bom','descoberta','acao','acontecimento'].forEach(k=>{const t=((en&&en[k])||'').trim();if(t)o.push({t})});
+  const c=en&&en.custom;if(c&&(c.texto||'').trim())o.push({lead:(c.titulo||'').trim(),t:c.texto.trim()});
+  return o;
+};
+function viewDiario(){
+  if(V.dwho!=='family'&&!S.profiles.some(p=>p.id===V.dwho))V.dwho=S.active;
+  const seg=S.profiles.length>1?`<div class="seg" role="group" aria-label="Diário de">${S.profiles.map(p=>`<button data-a="dwho" data-v="${p.id}" aria-pressed="${V.dwho===p.id}">${esc(p.name)}</button>`).join('')}<button data-a="dwho" data-v="family" aria-pressed="${V.dwho==='family'}">Família</button></div>`:'';
+  return `<div class="dbar"><h2 class="title">Diário</h2><div class="row">${seg}<button class="linkbtn" data-a="dlast" id="dlast" hidden>${ICON.down}Mais recente</button>${ibtn('dprint',ICON.print,'Imprimir ou salvar em PDF','','lg')}</div></div>
+    <p class="sub" id="dsub" style="margin:4px 0 0"></p><div class="dnote" id="dnote" role="status" aria-live="polite"></div><div id="diary" aria-busy="true"></div>`;
+}
+const dnote=t=>{const n=document.getElementById('dnote');if(n)n.textContent=t};
+async function fillDiary(note){
+  const box=document.getElementById('diary');if(!box)return;
+  const fam=V.dwho==='family';
+  const people=fam?S.profiles:[S.profiles.find(p=>p.id===V.dwho)||me()];
+  const photos={};let err='';
+  people.forEach(p=>photos[p.id]={});
+  try{(await allPhotos()).forEach(f=>{if(photos[f.pid])(photos[f.pid][f.date]=photos[f.pid][f.date]||[]).push(f)})}catch(e){err=e.message}
+  if(document.getElementById('diary')!==box)return;
+  diaryUrls.forEach(u=>URL.revokeObjectURL(u));diaryUrls=[];
+  const set=new Set();
+  people.forEach(p=>{
+    Object.keys(S.days[p.id]||{}).forEach(d=>{if(hasContent(entryOf(p.id,d)))set.add(d)});
+    Object.keys(photos[p.id]).forEach(d=>set.add(d));
+  });
+  const dates=[...set].sort();
+  const target=fam?me():people[0];
+  let html='',last='';
+  dates.forEach(iso=>{
+    const [y,m]=iso.split('-'),d=parse(iso);
+    if(y+m!==last){html+=`<h3 class="dmonth">${MESES[+m-1]} ${y}</h3>`;last=y+m}
+    const cnt=((photos[target.id]||{})[iso]||[]).length;
+    html+=`<section class="dday" aria-label="${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}"><header class="dhead">
+      <div><span class="dd">${fmt(iso)}</span><span class="dw">${DIAS[d.getDay()]}</span></div>
+      <span class="row"><button class="linkbtn" data-a="phadd" data-date="${iso}" data-pid="${target.id}" ${cnt>=MAX_PHOTOS_DAY||target.remote?'disabled':''} title="${cnt>=MAX_PHOTOS_DAY?'Limite de '+MAX_PHOTOS_DAY+' fotos neste dia':'Adicionar foto'+(fam&&S.profiles.length>1?' ('+esc(target.name)+')':'')}" aria-label="Adicionar foto a ${fmt(iso)}">${ICON.photo}<span>${cnt?cnt+'/'+MAX_PHOTOS_DAY:''}</span></button>
+      ${ibtn('opencal',ICON.edit,'Editar este dia no calendário',`data-date="${iso}"`)}</span></header>`;
+    people.forEach(p=>{
+      const tp=topicsOf(entryOf(p.id,iso)),ph=(photos[p.id]||{})[iso]||[];
+      if(!tp.length&&!ph.length)return;
+      if(fam)html+=`<div class="sd-who">${esc(p.name)}</div>`;
+      if(tp.length)html+=`<ul class="topics">${tp.map(x=>`<li>${x.lead?`<b>${esc(x.lead)}.</b> `:''}${esc(x.t)}</li>`).join('')}</ul>`;
+      if(ph.length){
+        ph.sort((a,b)=>a.ts-b.ts);
+        html+=`<div class="photos ${ph.length>1?'two':''}">${ph.map(f=>{const u=URL.createObjectURL(f.blob);diaryUrls.push(u);
+          return `<figure><img src="${u}" width="${f.w}" height="${f.h}" loading="lazy" alt="Foto de ${esc(p.name)} em ${fmt(iso)}">${p.remote?'':`<button class="ibtn rm" data-a="phdel" data-id="${f.id}" data-pid="${p.id}" aria-label="Remover esta foto" title="Remover esta foto">${ICON.x}</button>`}</figure>`}).join('')}</div>`;
+      }
+    });
+    html+='</section>';
+  });
+  box.removeAttribute('aria-busy');
+  box.innerHTML=dates.length?`<article class="sheet">${html}<div class="sd-foot">Meu dia em cards</div></article>`
+    :`<article class="sheet"><p class="sd-empty">O diário começa quando você guardar o primeiro dia.</p></article>`;
+  const sub=document.getElementById('dsub');if(sub)sub.textContent=dates.length?`${dates.length} ${dates.length===1?'dia':'dias'} · atualizado automaticamente a cada novo registro`:'';
+  const dl=document.getElementById('dlast');if(dl)dl.hidden=dates.length<8;
+  if(note||err)dnote(note||err);
+}
+async function addPhotos(files){
+  const T=V.photoTarget;if(!T||!files.length)return;
+  const target=S.profiles.find(p=>p.id===T.pid)||me();
+  let cur;try{cur=(await photosFor(target.id,T.date)).length}catch(e){dnote(e.message);return}
+  const room=MAX_PHOTOS_DAY-cur;
+  if(room<=0){dnote(`Limite de ${MAX_PHOTOS_DAY} fotos neste dia para ${target.name}.`);return}
+  const list=[...files].slice(0,room),skipped=files.length-list.length;
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  let ok=0,errs=[];
+  for(let i=0;i<list.length;i++){
+    dnote(`Reduzindo foto ${i+1} de ${list.length}…`);
+    try{const r=await shrink(list[i]);const nid=uid();await putPhoto({id:nid,pid:target.id,date:T.date,blob:r.blob,w:r.w,h:r.h,ts:Date.now()+i,synced:false});S.dirty['ph:'+nid]=1;ok++}
+    catch(e){errs.push(e.message||'Falha ao guardar a foto.')}
+  }
+  const parts=[];
+  if(ok)parts.push(ok===1?'1 foto adicionada.':`${ok} fotos adicionadas.`);
+  if(skipped>0)parts.push(`${skipped} ficou de fora: limite de ${MAX_PHOTOS_DAY} por dia.`);
+  if(errs.length)parts.push(errs[0]);
+  save();scheduleSync();
+  await fillDiary(parts.join(' '));live(parts.join(' '));
+}
+
+/* ---------- Ações ---------- */
+function readFields(root){
+  const o={};
+  root.querySelectorAll('[data-f]').forEach(el=>{o[el.dataset.f]=el.value});
+  return o;
+}
+function applyFields(pid,iso,f){
+  S.days[pid]=S.days[pid]||{};
+  const en=S.days[pid][iso]||{};
+  ['bom','descoberta','acao','acontecimento'].forEach(k=>{if(k in f)en[k]=f[k].trim()});
+  if('custom-x' in f||'custom-t' in f){
+    const old=en.custom||{};
+    en.custom={titulo:('custom-t' in f?f['custom-t']:old.titulo||'').trim(),texto:('custom-x' in f?f['custom-x']:old.texto||'').trim()};
+  }
+  S.days[pid][iso]=en;
+  if(!hasContent(en))delete S.days[pid][iso];
+  S.dirty['e:'+pid+'|'+iso]=1;scheduleSync();
+}
+function guardar(){
+  const root=document.getElementById('compose');
+  const f=readFields(root);
+  const filled=['bom','descoberta','acao','acontecimento'].some(k=>(f[k]||'').trim())||(f['custom-x']||'').trim();
+  if(!filled){V.msg='Escreva em pelo menos um card para guardar.';document.getElementById('status').textContent=V.msg;live(V.msg);return}
+  const p=me(),iso=V.date;
+  applyFields(p.id,iso,f);save();V.saving=true;V.msg='';
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  root.querySelectorAll('.card').forEach(c=>c.classList.add('sending'));
+  setTimeout(()=>{V.saving=false;render();live(`Dia ${fmt(iso)} guardado no calendário.`)},reduce?0:900);
+}
+function toggleFlip(btn){
+  const fl=btn.closest('.flip'),on=fl.classList.toggle('flipped');
+  fl.querySelector('.front').toggleAttribute('inert',on);
+  fl.querySelector('.back').toggleAttribute('inert',!on);
+  const target=on?fl.querySelector('.back textarea'):fl.querySelector('.front .ibtn');
+  setTimeout(()=>target&&target.focus(),on?350:0);
+}
+function fixsave(btn){
+  const fl=btn.closest('.flip'),f=readFields(fl),{pid,date,k}=btn.dataset;
+  applyFields(pid,date,f);save();
+  live('Correção salva.');
+  if(!hasContent(entryOf(pid,date))){render(true);return}
+  const kind=KINDS.find(x=>x.k===k),en=entryOf(pid,date),v=valueOf(kind,en);
+  const text=kind.custom?v.texto:v,p=fl.querySelector('.front p.txt');
+  p.textContent=text.trim()?text:'Em branco';p.classList.toggle('empty',!text.trim());
+  if(kind.custom){const t=titleOf(kind,en),el=fl.querySelector('.front .ttl');el.textContent=t;el.title=t}
+  toggleFlip(btn);
+}
+function addPerson(){
+  const used=S.profiles.map(p=>p.color);
+  const color=COLORS.find(c=>!used.includes(c))||COLORS[S.profiles.length%COLORS.length];
+  const id=uid();S.profiles.push({id,name:'Pessoa '+(S.profiles.length+1),color});S.dirty['p:'+id]=1;save();scheduleSync();render(true);
+  setTimeout(()=>{const i=document.getElementById('n-'+id);if(i){i.focus();i.select()}},30);
+}
+async function exportData(){
+  let photos=[];
+  try{photos=await Promise.all((await allPhotos()).map(async p=>({id:p.id,pid:p.pid,date:p.date,w:p.w,h:p.h,ts:p.ts,data:await blobToDataURL(p.blob)})))}catch(e){}
+  const blob=new Blob([JSON.stringify({...S,photos},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`meu-dia-em-cards-${todayIso()}.json`;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function doImport(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=async()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!d||!Array.isArray(d.profiles)||!d.profiles.length||typeof d.days!=='object')throw 0;
+      if(!confirm('Importar vai substituir os dados deste aparelho (incluindo fotos). Continuar?'))return;
+      const photos=Array.isArray(d.photos)?d.photos:[];delete d.photos;
+      try{await clearPhotos();for(const p of photos){const blob=await (await fetch(p.data)).blob();await putPhoto({id:p.id,pid:p.pid,date:p.date,w:p.w,h:p.h,ts:p.ts,blob})}}catch(err){}
+      S=d;S.dirty={};S.profiles.forEach(p=>{delete p.remote;delete p.synced});S.cloudUser=C.user?C.user.id:null;
+      if(!S.profiles.some(p=>p.id===S.active))S.active=S.profiles[0].id;
+      try{(await allPhotos()).forEach(f=>{f.synced=false;putPhoto(f)})}catch(err){}
+      if(C.user)markAllDirty();save();render();live('Dados importados.');
+    }catch(err){alert('Este arquivo não parece ser um backup válido do app.')}
+  };
+  r.readAsText(file);
+}
+function goToday(){V.date=todayIso();V.tab='hoje';V.msg='';render();live('Hoje, '+fmt(V.date))}
+function moveDay(delta){
+  const c=V.cal,d=new Date(c.y,c.m,c.d+delta),iso=isoOf(d.getFullYear(),d.getMonth(),d.getDate());
+  if(iso>todayIso())return;
+  c.y=d.getFullYear();c.m=d.getMonth();c.d=d.getDate();render(true);
+}
+
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]');if(!el||el.tagName==='INPUT')return;
+  const a=el.dataset.a,v=el.dataset.v,c=V.cal;
+  switch(a){
+    case 'tab':if(v==='hoje')goToday();else{V.tab=v;render()}break;
+    case 'font':S.font=Math.min(1.5,Math.max(.85,+((S.font||1)+v*.1).toFixed(2)));save();render(true);break;
+    case 'guardar':guardar();break;
+    case 'flip':toggleFlip(el);break;
+    case 'fixsave':fixsave(el);break;
+    case 'opencal':{const d=parse(el.dataset.date);V.cal={lvl:'day',y:d.getFullYear(),m:d.getMonth(),d:d.getDate()};V.tab='cal';render();break}
+    case 'gohoje':V.date=el.dataset.date;V.tab='hoje';V.msg='';render();break;
+    case 'gohoje-real':goToday();break;
+    case 'scope':V.scope=v;render(true);break;
+    case 'calgo':c.lvl=el.dataset.l;render();break;
+    case 'calnow':c.y=now.getFullYear();c.m=now.getMonth();render(true);break;
+    case 'yr':c.y+=+v;render(true);break;
+    case 'openmonth':c.m=+el.dataset.m;c.lvl='month';render();break;
+    case 'mo':{let m=c.m+ +v,y=c.y;if(m<0){m=11;y--}if(m>11){m=0;y++}c.m=m;c.y=y;render(true);break}
+    case 'openday':c.d=+el.dataset.d;c.lvl='day';render();break;
+    case 'dy':moveDay(+v);break;
+    case 'setme':if((S.profiles.find(x=>x.id===el.dataset.pid)||{}).remote)break;S.active=el.dataset.pid;save();render(true);live('Agora escrevendo como '+me().name);break;
+    case 'addp':addPerson();break;
+    case 'delp':{
+      const p=S.profiles.find(x=>x.id===el.dataset.pid);
+      if(!confirm(`Remover ${p.name} e todos os cards e fotos dessa pessoa? Isso não pode ser desfeito.`))break;
+      S.profiles=S.profiles.filter(x=>x.id!==p.id);delete S.days[p.id];Object.keys(S.dirty).forEach(k=>{if(k.includes(p.id))delete S.dirty[k]});if(p.synced)S.dirty['pd:'+p.id]=1;
+      if(S.active===p.id)S.active=S.profiles[0].id;save();scheduleSync();delPhotosOf(p.id).catch(()=>{});render(true);break}
+    case 'export':exportData();break;
+    case 'gsignin':cloudSignIn();break;
+    case 'gsignout':cloudSignOut();break;
+    case 'syncnow':syncNow();break;
+    case 'famcreate':{const n=(document.getElementById('famname').value||'').trim();if(!n){C.err=true;C.msg='Dê um nome para a família.';cloudLine();break}famAct(()=>sb.rpc('create_family',{fname:n}),'Família criada. Compartilhe o código de convite.');break}
+    case 'famjoin':{const c=(document.getElementById('famcode').value||'').trim();if(!c){C.err=true;C.msg='Digite o código de convite.';cloudLine();break}famAct(()=>sb.rpc('join_family',{fcode:c}),'Você entrou na família.');break}
+    case 'famleave':if(confirm('Sair da família? Você deixa de ver os dias dos outros e eles deixam de ver os seus. Seus dados continuam com você.'))famAct(()=>sb.rpc('leave_family'),'Você saiu da família.');break;
+    case 'famcopy':navigator.clipboard&&C.family&&navigator.clipboard.writeText(C.family.code).then(()=>{C.err=false;C.msg='Código copiado.';cloudLine()});break;
+    case 'dwho':V.dwho=v;render(true);break;
+    case 'dprint':window.print();break;
+    case 'dlast':{const l=document.querySelectorAll('.dday');l.length&&l[l.length-1].scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});break}
+    case 'phadd':V.photoTarget={date:el.dataset.date,pid:el.dataset.pid};document.getElementById('phin').click();break;
+    case 'phdel':if(confirm('Remover esta foto do diário?')){const id=el.dataset.id,pid=el.dataset.pid;delPhoto(id).then(()=>{if(S.dirty['ph:'+id])delete S.dirty['ph:'+id];else S.dirty['phd:'+pid+'|'+id]=1;save();scheduleSync();return fillDiary('Foto removida.')}).catch(()=>{})}break;
+  }
+});
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.id==='phin'){const files=[...el.files];el.value='';addPhotos(files);return}
+  if(el.dataset.a==='rename'){const p=S.profiles.find(x=>x.id===el.dataset.pid);if(p.remote)return;p.name=el.value.trim()||p.name;S.dirty['p:'+p.id]=1;save();scheduleSync();render(true)}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  const fl=e.target.closest&&e.target.closest('.flip.flipped');
+  if(fl){const b=fl.querySelector('.back [data-a=flip]');b&&toggleFlip(b)}
+});
+render();
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
