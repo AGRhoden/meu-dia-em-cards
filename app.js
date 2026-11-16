@@ -22,7 +22,10 @@ const ICON={
   descoberta:IC('<path d="M9.5 17.5h5M10.5 20.5h3M12 3.5a5.7 5.7 0 00-3.4 10.3c.6.5.9 1.1.9 1.8v.4h5v-.4c0-.7.3-1.3.9-1.8A5.7 5.7 0 0012 3.5z"/>'),
   acao:IC('<path d="M12 19.5s-6.8-4.2-6.8-9.5A3.9 3.9 0 0112 7.6 3.9 3.9 0 0118.8 10c0 5.3-6.8 9.5-6.8 9.5z"/>'),
   acontecimento:IC('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.4 5.2 3.4 8.5s-1 6.1-3.4 8.5c-2.4-2.4-3.4-5.2-3.4-8.5s1-6.1 3.4-8.5z"/>'),
-  custom:IC('<path d="M12 4l1.9 5.1L19 11l-5.1 1.9L12 18l-1.9-5.1L5 11l5.1-1.9z"/>')
+  custom:IC('<path d="M12 4l1.9 5.1L19 11l-5.1 1.9L12 18l-1.9-5.1L5 11l5.1-1.9z"/>'),
+  cloudok:IC('<path d="M7 18.5a4.5 4.5 0 01-.6-8.96A5.5 5.5 0 0117 8.6a4.6 4.6 0 01.5 9.9z"/><path d="M9.4 13.4l2 2 3.4-3.7"/>'),
+  cloudup:IC('<path d="M7 18.5a4.5 4.5 0 01-.6-8.96A5.5 5.5 0 0117 8.6a4.6 4.6 0 01.5 9.9z"/><path d="M12 16v-4.6M9.9 13.4L12 11.2l2.1 2.2"/>'),
+  cloudoff:IC('<path d="M7 18.5a4.5 4.5 0 01-.6-8.96A5.5 5.5 0 0117 8.6a4.6 4.6 0 01.5 9.9z"/><path d="M4.5 4.5l15 15"/>')
 };
 /* ---------- Dados ---------- */
 const KINDS=[
@@ -98,16 +101,20 @@ function clean(d){
   const o={v:1,profiles,active:profiles.some(p=>p.id===d.active)?d.active:profiles[0].id,days,font:Math.min(1.5,Math.max(.85,+d.font||1)),dirty};
   if(typeof d.cloudUser==='string'&&RE_ID.test(d.cloudUser))o.cloudUser=d.cloudUser;
   const b=d.bar&&typeof d.bar==='object'?d.bar:null,t=b&&b.t&&typeof b.t==='object'?b.t:null;
+  if(typeof d.famName==='string')o.famName=d.famName.slice(0,60);
+  const k=d.bk&&typeof d.bk==='object'?d.bk:{};
+  o.bk={auto:k.auto!==false,week:RE_DATE.test(k.week)?k.week:'',last:RE_DATE.test(k.last)?k.last:''};
   if(b){o.bar={color:str(b.color,20),cover:b.cover===true,hasSrc:b.hasSrc===true,at:+b.at||0};if(t)o.bar.t={z:+t.z||1,px:+t.px||0,py:+t.py||0}}
   return o;
 }
-const fresh=font=>{const id=uid();return {v:1,profiles:[{id,name:'Eu',color:COLORS[0],blank:true}],active:id,days:{},font:font||1,dirty:{}}};
+const fresh=font=>{const id=uid();return {v:1,profiles:[{id,name:'Eu',color:COLORS[0],blank:true}],active:id,days:{},font:font||1,dirty:{},bk:{auto:true,week:'',last:''}}};
 function load(){
   try{const s=clean(JSON.parse(localStorage.getItem(STORE)));if(s)return s}catch(e){}
   return fresh();
 }
 let S=load();
 if(!S.dirty)S.dirty={};
+if(!S.bk)S.bk={auto:true,week:'',last:''};
 const save=()=>{try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){alert('Não foi possível salvar neste aparelho (armazenamento cheio ou bloqueado).')}};
 const me=()=>S.profiles.find(p=>p.id===S.active)||S.profiles.find(p=>!p.remote)||S.profiles[0];
 const entryOf=(pid,iso)=>(S.days[pid]||{})[iso];
@@ -157,9 +164,20 @@ const blobToDataURL=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload
 /* ---------- Nuvem (Supabase): login Google, sincronização e família ---------- */
 const CLOUD={url:'https://pblqerecgcyyodbdcswe.supabase.co',key:'sb_publishable_Pso0Ju-3VNcaQTSKhmPVtg_YyxHAXYZ'};
 const sb=(window.supabase&&CLOUD.url)?window.supabase.createClient(CLOUD.url,CLOUD.key,{auth:{flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
-const C={user:null,family:null,msg:'',err:false,busy:false,pendingView:false};
+const C={user:null,family:null,members:[],msg:'',err:false,busy:false,pendingView:false};
 let syncTimer=null;
-const scheduleSync=()=>{if(!sb||!C.user)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,1200)};
+const scheduleSync=()=>{if(!sb||!C.user)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,1200);renderSync()};
+function renderSync(){
+  const el=document.getElementById('syncst');if(!el)return;
+  if(!sb||!C.user){el.hidden=true;return}
+  const pend=Object.keys(S.dirty).length>0;
+  const [ic,t]=!navigator.onLine?[ICON.cloudoff,'Sem conexão. Está guardado neste aparelho e será enviado quando a conexão voltar.']
+    :C.busy||pend?[ICON.cloudup,'Enviando para a nuvem…']
+    :C.err?[ICON.cloudoff,'Não consegui sincronizar agora. Tento de novo em instantes.']
+    :[ICON.cloudok,'Tudo guardado na nuvem.'];
+  el.hidden=false;el.innerHTML=ic;el.title=t;el.setAttribute('aria-label',t);
+}
+const famLabel=()=>{const n=((C.family&&C.family.name)||S.famName||'').trim();return !n?'Família':/^fam[ií]lia\b/i.test(n)?n:'Família '+n};
 const cloudLine=()=>{const el=document.getElementById('cloudline');if(el){el.textContent=C.msg;el.style.color=C.err?'#c0392b':''}};
 const hhmm=()=>{const n=new Date();return pad(n.getHours())+':'+pad(n.getMinutes())};
 
@@ -286,14 +304,16 @@ async function pullAll(){
 
 async function syncNow(){
   if(!sb||!C.user||C.busy)return;
-  C.busy=true;C.msg='Sincronizando…';C.err=false;cloudLine();
+  C.busy=true;C.msg='Sincronizando…';C.err=false;cloudLine();renderSync();
   let failure=null;
   try{await pushDirty()}catch(e){failure=e}
   try{await pullAll()}catch(e){failure=failure||e}
-  try{const r=await sb.rpc('get_my_family');C.family=r.error?C.family:(r.data||null)}catch(e){}
+  try{const r=await sb.rpc('get_my_family');if(!r.error){C.family=r.data||null;S.famName=C.family?C.family.name:'';
+    if(C.family){const m=await sb.rpc('get_family_members');if(!m.error&&Array.isArray(m.data))C.members=m.data}else C.members=[]}}catch(e){}
   if(failure){console.warn(failure);C.err=true;C.msg=navigator.onLine?'Não consegui sincronizar agora. Tento de novo em instantes.':'Sem conexão. Vai sincronizar quando voltar.'}
   else{C.msg='Sincronizado às '+hhmm()}
-  C.busy=false;save();cloudLine();safeRender();
+  C.busy=false;save();cloudLine();safeRender();renderSync();
+  if(!failure)autoBackup();
   if(failure)setTimeout(syncNow,30000);
   else if(Object.keys(S.dirty).length)setTimeout(syncNow,300);   // a leitura criou pendências (ex.: pessoa inicial)
 }
@@ -327,17 +347,39 @@ async function cloudSignIn(){
   const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});
   if(error){C.err=true;C.msg='Não foi possível iniciar o login: '+error.message;cloudLine()}
 }
-async function cloudSignOut(){
-  // envia o que falta antes de sair; os dados continuam na conta e saem deste aparelho
-  if(Object.keys(S.dirty).length&&!C.busy){try{await pushDirty()}catch(e){}}
-  if(Object.keys(S.dirty).length&&!confirm('Há alterações que ainda não foram enviadas para a nuvem. Se sair agora, elas serão perdidas. Sair mesmo assim?'))return;
-  clearTimeout(syncTimer);
-  try{await sb.auth.signOut({scope:'local'})}catch(e){}
-  C.user=null;C.family=null;C.msg='';
+let leaving=false;
+async function wipeDevice(msg){
+  clearTimeout(syncTimer);C.user=null;C.family=null;C.members=[];C.msg='';C.err=false;
   try{localStorage.removeItem(BAR_KEY);localStorage.removeItem(BAR_SRC)}catch(e){}
   try{await clearPhotos()}catch(e){}
-  S=fresh(S.font);save();V.tab='hoje';V.date=todayIso();V.dwho=null;render();applyBar();
-  live('Você saiu. Seus dias continuam guardados na sua conta.');
+  S=fresh(S.font);save();V.tab='hoje';V.date=todayIso();V.dwho=null;V.acct=false;render();applyBar();renderSync();
+  if(msg)live(msg);
+}
+async function cloudSignOut(everywhere){
+  // envia o que falta antes de sair; os dados continuam na conta e saem deste aparelho
+  if(everywhere&&!confirm('Sair da conta em todos os aparelhos? Cada um vai pedir o login de novo.'))return;
+  if(Object.keys(S.dirty).length&&!C.busy){try{await pushDirty()}catch(e){}}
+  if(Object.keys(S.dirty).length&&!confirm('Há alterações que ainda não foram enviadas para a nuvem. Se sair agora, elas serão perdidas. Sair mesmo assim?'))return;
+  leaving=true;
+  try{await sb.auth.signOut({scope:everywhere?'global':'local'})}catch(e){}
+  await wipeDevice(everywhere?'Você saiu de todos os aparelhos.':'Você saiu. Seus dias continuam guardados na sua conta.');
+  leaving=false;
+}
+async function deleteAccount(){
+  if(prompt('Isto apaga para sempre a sua conta: pessoas, dias, fotos e capa, em todos os aparelhos. Não pode ser desfeito.\n\nPara confirmar, digite APAGAR')!=='APAGAR')return;
+  C.err=false;C.msg='Apagando a conta…';cloudLine();
+  try{
+    const pr=await sb.from('people').select('id').eq('owner_id',C.user.id);if(pr.error)throw pr.error;
+    for(const p of pr.data){
+      const l=await sb.storage.from('photos').list(p.id,{limit:1000});if(l.error)throw l.error;
+      if(l.data.length){const r=await sb.storage.from('photos').remove(l.data.map(o=>`${p.id}/${o.name}`));if(r.error)throw r.error}
+    }
+    const r=await sb.rpc('delete_my_account');if(r.error)throw r.error;
+  }catch(e){console.warn(e);C.err=true;C.msg='Não consegui apagar a conta agora. Tente de novo.';cloudLine();return}
+  leaving=true;
+  try{await sb.auth.signOut({scope:'local'})}catch(e){}
+  await wipeDevice('Conta apagada.');
+  leaving=false;
 }
 async function famAct(fn,okMsg){
   C.err=false;C.msg='Aguarde…';cloudLine();
@@ -348,10 +390,15 @@ async function famAct(fn,okMsg){
 if(sb){
   sb.auth.onAuthStateChange((ev,session)=>{
     if(session&&session.user){if(!C.user||C.user.id!==session.user.id)setTimeout(()=>afterLogin(session.user),0)}
-    else if(ev==='SIGNED_OUT'){C.user=null;C.family=null}
+    else if(ev==='SIGNED_OUT'&&!leaving){
+      // sessão encerrada de fora (ex.: "sair de todos os aparelhos"): o diário sai deste aparelho, salvo se houver algo ainda não enviado
+      C.user=null;C.family=null;
+      if(S.cloudUser&&!Object.keys(S.dirty).length)wipeDevice();else{renderAccount();renderSync()}
+    }
   });
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow()});
-  window.addEventListener('online',()=>syncNow());
+  window.addEventListener('online',()=>{renderSync();syncNow()});
+  window.addEventListener('offline',renderSync);
   setInterval(()=>{if(!document.hidden)syncNow()},60000);
 }
 
@@ -434,7 +481,7 @@ function scopeSeg(){
   if(S.profiles.length<2)return '';
   return `<div class="seg" role="group" aria-label="Quem mostrar">
     <button data-a="scope" data-v="eu" aria-pressed="${V.scope==='eu'}">Só ${esc(me().name)}</button>
-    <button data-a="scope" data-v="familia" aria-pressed="${V.scope==='familia'}">Família</button></div>`;
+    <button data-a="scope" data-v="familia" aria-pressed="${V.scope==='familia'}">${esc(famLabel())}</button></div>`;
 }
 function legend(){
   if(V.scope!=='familia')return '';
@@ -513,6 +560,7 @@ function viewPessoas(){
   <p class="sub" style="margin-bottom:14px" id="photoinfo"></p>
   <div class="row"><button class="btn sec sm" data-a="export">${ICON.down}Exportar</button>
   <label class="btn sec sm" style="cursor:pointer">${ICON.up}Importar<input type="file" accept="application/json" id="imp" class="sr"></label></div>
+  <label class="check"><input type="checkbox" id="bkauto" ${S.bk.auto?'checked':''}><span>Backup automático toda semana<small>Aos domingos, ou na primeira vez que o app for aberto na semana, um arquivo de backup é salvo na pasta de downloads deste aparelho.${S.bk.last?' Último backup: '+fmt(S.bk.last)+'.':''}</small></span></label>
   ${sb?'':'<p class="note">A sincronização com a nuvem não está disponível agora.</p>'}`;
   return h;
 }
@@ -527,18 +575,24 @@ function cloudSection(){
     <button class="linkbtn" data-a="syncnow">Sincronizar agora</button><button class="linkbtn" data-a="gsignout">Sair da conta</button></div>
     <p class="sub" id="cloudline" role="status" aria-live="polite" style="margin:0 0 16px">${esc(C.msg)}</p>`;
   if(f){
-    h+=`<div class="famcard"><div><b>${esc(f.name)}</b> · ${f.members} ${f.members===1?'pessoa':'pessoas'} com conta</div>
+    const ms=C.members||[];
+    h+=`<div class="famcard"><div><b>${esc(famLabel())}</b></div>
+      <ul class="members">${ms.map(m=>`<li><span><b>${esc(m.name||m.email||'Sem nome')}</b>${m.me?' (você)':''}${m.creator?' · criou a família':''}<small>${esc(m.email)}</small></span>
+        ${f.creator&&!m.me?`<button class="linkbtn" data-a="famkick" data-id="${esc(m.id)}" data-n="${esc(m.name||m.email)}">Remover</button>`:''}</li>`).join('')}</ul>
+      ${f.creator?`<div class="famrow"><label for="famrename">Sobrenome</label><input id="famrename" maxlength="60" value="${esc(f.name)}"><button class="btn sec sm" data-a="famrename">Salvar</button></div>`:''}
       <div class="row" style="margin-top:6px">Código de convite: <code>${esc(f.code)}</code><button class="linkbtn" data-a="famcopy">Copiar</button><button class="linkbtn" data-a="famrotate">Gerar novo código</button></div>
       <p class="sub" style="margin:8px 0 10px;font-size:.85rem">Quem entrar com este código passa a ver os dias de todos. Cada pessoa edita só o que é dela.</p>
       <button class="linkbtn" data-a="famleave">Sair da família</button></div>`;
   }else{
-    h+=`<div class="famrow"><label class="sr" for="famname">Nome da família</label><input id="famname" maxlength="60" placeholder="Nome da família"><button class="btn sec sm" data-a="famcreate">Criar família</button></div>
+    h+=`<div class="famrow"><label class="sr" for="famname">Sobrenome da família</label><input id="famname" maxlength="60" placeholder="Sobrenome da família (ex.: Silva)"><button class="btn sec sm" data-a="famcreate">Criar família</button></div>
       <div class="famrow"><label class="sr" for="famcode">Código de convite</label><input id="famcode" maxlength="12" placeholder="Código de convite" autocapitalize="characters" autocomplete="off"><button class="btn sec sm" data-a="famjoin">Entrar na família</button></div>`;
   }
+  h+=`<p style="margin:18px 0 0"><button class="linkbtn danger" data-a="delacct">Apagar minha conta</button></p>`;
   return h;
 }
 
 function renderAccount(){
+  renderSync();
   const w=document.getElementById('acctwrap');if(!w)return;
   const p=me(),chip=`${avatar(p,'sm')}<span>${esc(p.name)}</span>`;
   if(!sb||!C.user){
@@ -547,7 +601,7 @@ function renderAccount(){
   }
   const u=C.user;
   w.innerHTML=`<span class="menuwrap"><button class="ghost person-chip" data-a="acctmenu" aria-haspopup="menu" aria-expanded="${!!V.acct}" aria-label="${esc(p.name)}, menu da conta">${chip}</button>
-    ${V.acct?`<div class="menu" role="menu"><span class="who">${esc(p.name)}</span><small>${esc(u.email||'Conta Google')}</small><button role="menuitem" data-a="tab" data-v="pessoas">Pessoas e família</button><button role="menuitem" data-a="gsignout">Sair da conta</button></div>`:''}</span>`;
+    ${V.acct?`<div class="menu" role="menu"><span class="who">${esc(p.name)}</span><small>${esc(u.email||'Conta Google')}</small><button role="menuitem" data-a="tab" data-v="pessoas">Pessoas e família</button><button role="menuitem" data-a="gsignout">Sair da conta</button><button role="menuitem" data-a="gsignoutall">Sair de todos os aparelhos</button></div>`:''}</span>`;
 }
 /* Sem conta, o app não abre: só a tela de entrada. (S.cloudUser marca o aparelho já ligado a uma conta, então o diário segue abrindo sem internet.) */
 const gated=()=>!!sb&&!S.cloudUser;
@@ -594,7 +648,7 @@ const topicsOf=en=>{
 };
 function viewDiario(){
   if(V.dwho!=='family'&&!S.profiles.some(p=>p.id===V.dwho))V.dwho=S.active;
-  const seg=S.profiles.length>1?`<div class="seg" role="group" aria-label="Diário de">${S.profiles.map(p=>`<button data-a="dwho" data-v="${p.id}" aria-pressed="${V.dwho===p.id}">${esc(p.name)}</button>`).join('')}<button data-a="dwho" data-v="family" aria-pressed="${V.dwho==='family'}">Família</button></div>`:'';
+  const seg=S.profiles.length>1?`<div class="seg" role="group" aria-label="Diário de">${S.profiles.map(p=>`<button data-a="dwho" data-v="${p.id}" aria-pressed="${V.dwho===p.id}">${esc(p.name)}</button>`).join('')}<button data-a="dwho" data-v="family" aria-pressed="${V.dwho==='family'}">${esc(famLabel())}</button></div>`:'';
   return `<div class="dbar"><h2 class="title">Diário</h2><div class="row">${seg}${ibtn('dprint',ICON.print,'Imprimir ou salvar em PDF','','lg')}</div></div>
     <p class="sub" id="dsub" style="margin:4px 0 0"></p><div id="dnav"></div><div class="dnote" id="dnote" role="status" aria-live="polite"></div><div id="diary" aria-busy="true"></div>`;
 }
@@ -849,12 +903,22 @@ function addPerson(){
   const id=uid();S.profiles.push({id,name:'Pessoa '+(S.profiles.length+1),color});S.dirty['p:'+id]=1;save();scheduleSync();render(true);
   setTimeout(()=>{const i=document.getElementById('n-'+id);if(i){i.focus();i.select()}},30);
 }
-async function exportData(){
+async function exportData(auto){
   let photos=[];
   try{photos=await Promise.all((await allPhotos()).map(async p=>({id:p.id,pid:p.pid,date:p.date,w:p.w,h:p.h,ts:p.ts,data:await blobToDataURL(p.blob)})))}catch(e){}
   const blob=new Blob([JSON.stringify({...S,photos},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gracas-do-dia-${todayIso()}.json`;a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gracas-do-dia-${auto?'backup-':''}${todayIso()}.json`;a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  S.bk.last=todayIso();S.bk.week=weekStart();save();
+  if(auto)live('Backup semanal salvo na pasta de downloads.');
+}
+/* Backup semanal: uma vez por semana (a semana começa no domingo), na primeira abertura do app com tudo sincronizado */
+const weekStart=()=>{const n=new Date();n.setDate(n.getDate()-n.getDay());return isoOf(n.getFullYear(),n.getMonth(),n.getDate())};
+function autoBackup(){
+  if(!S.bk.auto||gated()||document.hidden||S.bk.week===weekStart())return;
+  const has=S.profiles.some(p=>!p.remote&&Object.keys(S.days[p.id]||{}).length);
+  if(!has){S.bk.week=weekStart();save();return}   // nada para guardar ainda
+  exportData(true);
 }
 const dataToBlob=u=>{const b=atob(u.slice(u.indexOf(',')+1)),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return new Blob([a],{type:'image/jpeg'})};
 function doImport(e){
@@ -875,7 +939,7 @@ function doImport(e){
       if(C.user)d.cloudUser=C.user.id;else delete d.cloudUser;
       d.bar=S.bar&&S.bar.cover?S.bar:(d.bar?{color:d.bar.color,at:Date.now()}:undefined);   // o backup não leva a imagem da capa
       if(!d.profiles.some(p=>p.id===d.active))d.active=d.profiles[0].id;
-      S=d;
+      d.bk=S.bk;S=d;
       if(C.user)markAllDirty();save();render();applyBar();live('Dados importados.');
     }catch(err){alert('Este arquivo não parece ser um backup válido do app.')}
   };
@@ -929,9 +993,13 @@ document.addEventListener('click',e=>{
     case 'barsave':barSave();break;
     case 'gsignin':cloudSignIn();break;
     case 'gsignout':V.acct=false;cloudSignOut();break;
+    case 'gsignoutall':V.acct=false;renderAccount();cloudSignOut(true);break;
+    case 'delacct':deleteAccount();break;
     case 'syncnow':syncNow();break;
-    case 'famcreate':{const n=(document.getElementById('famname').value||'').trim();if(!n){C.err=true;C.msg='Dê um nome para a família.';cloudLine();break}famAct(()=>sb.rpc('create_family',{fname:n}),'Família criada. Compartilhe o código de convite.');break}
+    case 'famcreate':{const n=(document.getElementById('famname').value||'').trim();if(!n){C.err=true;C.msg='Escreva o sobrenome da família.';cloudLine();break}famAct(()=>sb.rpc('create_family',{fname:n}),'Família criada. Compartilhe o código de convite.');break}
     case 'famjoin':{const c=(document.getElementById('famcode').value||'').trim();if(!c){C.err=true;C.msg='Digite o código de convite.';cloudLine();break}famAct(()=>sb.rpc('join_family',{fcode:c}),'Você entrou na família.');break}
+    case 'famrename':{const n=(document.getElementById('famrename').value||'').trim();if(!n){C.err=true;C.msg='Escreva o sobrenome da família.';cloudLine();break}famAct(()=>sb.rpc('rename_family',{fname:n}),'Sobrenome salvo.');break}
+    case 'famkick':if(confirm(`Remover ${el.dataset.n} da família? Essa pessoa deixa de ver os dias de todos, e todos deixam de ver os dela. Gere um novo código se não quiser que ela volte.`))famAct(()=>sb.rpc('remove_family_member',{target:el.dataset.id}),'Pessoa removida da família.');break;
     case 'famleave':if(confirm('Sair da família? Você deixa de ver os dias dos outros e eles deixam de ver os seus. Seus dados continuam com você.'))famAct(()=>sb.rpc('leave_family'),'Você saiu da família.');break;
     case 'famrotate':if(confirm('Gerar um novo código de convite? O código atual deixa de funcionar. Quem já está na família continua.'))famAct(()=>sb.rpc('rotate_family_code'),'Novo código gerado.');break;
     case 'famcopy':navigator.clipboard&&C.family&&navigator.clipboard.writeText(C.family.code).then(()=>{C.err=false;C.msg='Código copiado.';cloudLine()});break;
@@ -946,6 +1014,7 @@ document.addEventListener('change',e=>{
   if(el.id==='avin'){const f=el.files[0];el.value='';if(!f)return;
     const pp=S.profiles.find(x=>x.id===V.avTarget);if(!pp||pp.remote)return;
     makeAvatar(f).then(url=>{pp.avatar=url;S.dirty['p:'+pp.id]=1;save();scheduleSync();render(true);live('Foto atualizada.')}).catch(err=>{alert(err.message||'Não consegui usar essa imagem.')});return}
+  if(el.id==='bkauto'){S.bk.auto=el.checked;save();live(el.checked?'Backup semanal ligado.':'Backup semanal desligado.');return}
   if(el.id==='phin'){const files=[...el.files];el.value='';addPhotos(files);return}
   if(el.dataset.a==='rename'){const p=S.profiles.find(x=>x.id===el.dataset.pid);if(p.remote)return;p.name=el.value.trim()||p.name;S.dirty['p:'+p.id]=1;save();scheduleSync();render(true)}
 });

@@ -182,6 +182,15 @@ h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6p
 .gate{max-width:34rem;margin:40px auto 0;text-align:center}
 .gate .btn{margin:18px 0 6px}
 .gate .small{font-size:.85rem;margin-top:18px}
+.syncst{display:inline-flex;color:#fff;opacity:.85;padding:0 4px}
+.syncst svg{width:20px;height:20px}
+.members{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
+.members li{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.members small{display:block;color:var(--muted);font-size:.82rem}
+.linkbtn.danger{color:#c0392b}
+.check{display:flex;gap:10px;align-items:flex-start;margin-top:16px;cursor:pointer}
+.check input{margin-top:4px;width:18px;height:18px;flex:none}
+.check small{display:block;color:var(--muted);font-size:.85rem}
 /* avatar e menu da conta */
 .av{--rc:var(--line);width:26px;height:26px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex:none;box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--rc);overflow:hidden}
 .av.xs{width:18px;height:18px;font-size:.62rem;box-shadow:0 0 0 1.5px var(--surface),0 0 0 2.5px var(--rc)}
@@ -271,6 +280,7 @@ h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6p
       <div class="tools">
         <button class="ghost" data-a="font" data-v="-1" aria-label="Diminuir letras" title="Diminuir letras" style="font-size:.8rem;font-weight:600">A−</button>
         <button class="ghost" data-a="font" data-v="1" aria-label="Aumentar letras" title="Aumentar letras" style="font-size:1rem;font-weight:600">A+</button>
+        <span id="syncst" class="syncst" role="img" hidden></span>
         <span id="acctwrap"></span>
         <button class="ghost" data-a="baredit" id="baredit" aria-label="Personalizar a barra" title="Personalizar a barra"></button>
       </div>
