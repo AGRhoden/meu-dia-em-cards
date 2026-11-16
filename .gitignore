@@ -1,3 +1,4 @@
 client_secret*
 *.json.bak
 .DS_Store
+_propostas/

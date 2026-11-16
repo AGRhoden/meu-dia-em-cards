@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Meu Dia em Cards</title>
-<meta name="theme-color" content="#f6f5f1">
+<title>Graças do Dia</title>
+<meta name="theme-color" content="#2f5d47">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>
@@ -32,15 +32,30 @@ button{-webkit-tap-highlight-color:transparent}
 svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
 /* topo */
-header.top{max-width:1000px;margin:0 auto;padding:26px clamp(20px,4vw,40px) 0}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.brand{font-size:.95rem;font-weight:600;letter-spacing:-.01em;margin:0}
+header.top{max-width:1000px;margin:0 auto;padding:18px clamp(20px,4vw,40px) 0}
+/* barra superior */
+.banner{--bar:#2f5d47;position:relative;z-index:5;height:clamp(104px,17vw,150px);border-radius:20px;color:#fff;background-color:var(--bar);isolation:isolate}
+.banner::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(110% 150% at 100% 0%,rgba(255,255,255,.18),transparent 58%),repeating-linear-gradient(90deg,rgba(255,255,255,.075) 0 1px,transparent 1px 28px);
+  -webkit-mask-image:linear-gradient(180deg,#000 10%,transparent 100%);mask-image:linear-gradient(180deg,#000 10%,transparent 100%)}
+.banner.has-cover{background-size:cover;background-position:center}
+.banner.has-cover::before{background:linear-gradient(180deg,rgba(0,0,0,.38),rgba(0,0,0,.04) 45%,rgba(0,0,0,.5));-webkit-mask-image:none;mask-image:none}
+.banner-in{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:8px 10px 14px 20px}
+.banner .tools{align-self:flex-end}
+.banner .ghost{color:rgba(255,255,255,.9)}
+.banner .ghost:hover{background:rgba(255,255,255,.18);color:#fff}
+.banner .person-chip{color:#fff}
+.banner .acct-in{color:#fff;border-color:rgba(255,255,255,.6)}
+.brand{display:flex;align-items:center;gap:12px;margin:0;font-family:var(--cond);font-stretch:condensed;font-size:clamp(1.9rem,6vw,2.7rem);line-height:1;font-weight:300;letter-spacing:.01em;text-shadow:0 1px 12px rgba(0,0,0,.28)}
+.brand b{font-weight:600}
+.brand i{font-family:var(--serif);font-weight:400;font-size:.6em;margin-left:2px;opacity:.92}
+.brand svg{width:.62em;height:.8em;flex:none}
 .tools{display:flex;gap:4px;align-items:center}
 .ghost{border:0;background:transparent;color:var(--muted);cursor:pointer;min-width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;font-size:.88rem;transition:background .15s,color .15s}
 .ghost:hover{background:var(--wash);color:var(--ink)}
 .person-chip{color:var(--ink)}
 .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
-nav.tabs{display:flex;gap:26px;margin-top:22px;border-bottom:1px solid var(--line)}
+nav.tabs{display:flex;gap:26px;margin-top:12px;border-bottom:1px solid var(--line)}
 nav.tabs button{border:0;background:none;cursor:pointer;padding:10px 0 12px;font-size:.95rem;color:var(--muted);position:relative;font-weight:500}
 nav.tabs button:hover{color:var(--ink)}
 nav.tabs button[aria-current=page]{color:var(--ink);font-weight:600}
@@ -182,6 +197,25 @@ h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6p
 .famcard code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1.05rem;letter-spacing:.12em;background:var(--wash);border-radius:8px;padding:2px 8px}
 .pname{flex:1;font-size:1.05rem;font-weight:500}
 
+/* personalizar a barra */
+.modal-wrap{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.52);display:grid;place-items:center;padding:16px;overflow:auto}
+.modal{width:min(640px,100%);background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:22px clamp(16px,4vw,28px);max-height:calc(100vh - 32px);overflow:auto}
+.modal h3{margin:0 0 16px;font-size:1.25rem;letter-spacing:-.02em}
+.modal fieldset{border:0;padding:0;margin:0 0 20px}
+.modal legend{font-weight:600;margin:0 0 10px;padding:0}
+.modal .opt{font-weight:400;color:var(--muted)}
+.sws{display:flex;gap:12px;flex-wrap:wrap}
+.swc{width:44px;height:44px;border-radius:50%;border:0;cursor:pointer;background:var(--c);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.swc[aria-pressed=true]{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--ink)}
+.stage{position:relative;width:100%;aspect-ratio:3/2;background:var(--wash);border-radius:14px;overflow:hidden;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.stage:active{cursor:grabbing}
+.stage img{position:absolute;max-width:none;pointer-events:none;-webkit-user-drag:none}
+.stage .frame{position:absolute;left:8%;top:50%;width:84%;aspect-ratio:6/1;transform:translateY(-50%);box-shadow:0 0 0 999px rgba(0,0,0,.6);border:2px solid #fff;border-radius:10px;pointer-events:none}
+.stage .phone{position:absolute;top:0;bottom:0;left:50%;width:52%;transform:translateX(-50%);border-left:1.5px dashed rgba(255,255,255,.9);border-right:1.5px dashed rgba(255,255,255,.9)}
+.hint2{margin:8px 2px 12px;color:var(--muted);font-size:.85rem}
+.zoomrow{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.zoomrow input[type=range]{flex:1;accent-color:var(--ink);min-width:0}
+
 /* diário contínuo */
 .dbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
 .dbar .title{margin:0}
@@ -221,13 +255,16 @@ h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6p
 </head>
 <body>
 <header class="top">
-  <div class="topbar">
-    <h1 class="brand">Meu dia em cards</h1>
-    <div class="tools">
-      <button class="ghost" data-a="font" data-v="-1" aria-label="Diminuir letras" title="Diminuir letras" style="font-size:.8rem;font-weight:600">A−</button>
-      <button class="ghost" data-a="font" data-v="1" aria-label="Aumentar letras" title="Aumentar letras" style="font-size:1rem;font-weight:600">A+</button>
-      <button class="ghost person-chip" data-a="tab" data-v="pessoas" id="whoami" aria-label="Pessoa atual (abrir Pessoas)"></button>
-      <span id="acctwrap"></span>
+  <div class="banner" id="banner">
+    <div class="banner-in">
+      <div class="tools">
+        <button class="ghost" data-a="font" data-v="-1" aria-label="Diminuir letras" title="Diminuir letras" style="font-size:.8rem;font-weight:600">A−</button>
+        <button class="ghost" data-a="font" data-v="1" aria-label="Aumentar letras" title="Aumentar letras" style="font-size:1rem;font-weight:600">A+</button>
+        <button class="ghost person-chip" data-a="tab" data-v="pessoas" id="whoami" aria-label="Pessoa atual (abrir Pessoas)"></button>
+        <span id="acctwrap"></span>
+        <button class="ghost" data-a="baredit" id="baredit" aria-label="Personalizar a barra" title="Personalizar a barra"></button>
+      </div>
+      <h1 class="brand"><svg viewBox="0 0 32 40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M16 1.5V13"/><circle cx="16" cy="26" r="10"/><circle cx="16" cy="26" r="3.2" fill="currentColor" stroke="none"/></svg><span><b>Graças</b> <i>do dia</i></span></h1>
     </div>
   </div>
   <nav class="tabs" aria-label="Seções">
@@ -239,6 +276,7 @@ h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6p
 </header>
 <main id="app" tabindex="-1"></main>
 <div class="sr" role="status" aria-live="polite" id="live"></div>
+<input type="file" id="barin" accept="image/*" class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" id="avin" accept="image/*" class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" id="phin" accept="image/*" multiple class="sr" tabindex="-1" aria-hidden="true">
 
@@ -258,6 +296,8 @@ const ICON={
   trash:IC('<path d="M5 7h14M9.5 7V5h5v2M7 7l.8 12h8.4L17 7"/>'),
   down:IC('<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>'),
   up:IC('<path d="M12 16V5M7 9l5-5 5 5M5 20h14"/>'),
+  image:IC('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3L16 12.5l4 4"/>'),
+  minus:IC('<path d="M5 12h14"/>'),
   book:IC('<path d="M5.5 4.5h10A2.5 2.5 0 0118 7v12.5H8A2.5 2.5 0 015.5 17z"/><path d="M5.5 17A2.5 2.5 0 018 14.5h10"/>'),
   photo:IC('<path d="M4 8.5A2.5 2.5 0 016.5 6h1.2L9 4h6l1.3 2h1.2A2.5 2.5 0 0120 8.5v8a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 16.5z"/><circle cx="12" cy="12.5" r="3.3"/>'),
   print:IC('<path d="M7 9V4.5h10V9M7 17.5H5.5A1.5 1.5 0 014 16v-5a2 2 0 012-2h12a2 2 0 012 2v5a1.5 1.5 0 01-1.5 1.5H17"/><path d="M7 14h10v5.5H7z"/>'),
@@ -811,7 +851,7 @@ async function fillDiary(note){
     html+='</section>';
   });
   box.removeAttribute('aria-busy');
-  box.innerHTML=allDates.length?`<article class="sheet">${html}<div class="sd-foot">Meu dia em cards</div></article>`
+  box.innerHTML=allDates.length?`<article class="sheet">${html}<div class="sd-foot">Graças do dia</div></article>`
     :`<article class="sheet"><p class="sd-empty">O diário começa quando você guardar o primeiro dia.</p></article>`;
   const sub=document.getElementById('dsub');if(sub)sub.textContent=allDates.length?`${allDates.length} ${allDates.length===1?'dia':'dias'} · atualizado automaticamente a cada novo registro`:'';
   const nav=document.getElementById('dnav');
@@ -844,6 +884,126 @@ async function addPhotos(files){
   save();scheduleSync();
   await fillDiary(parts.join(' '));live(parts.join(' '));
 }
+
+/* ---------- Barra superior: cor, imagem de capa e máscara ---------- */
+const BAR_COLORS=[{k:'verde',n:'Verde',c:'#2f5d47'},{k:'roxo',n:'Roxo',c:'#4b3a6b'},{k:'vermelho',n:'Vermelho',c:'#8a2b2b'},{k:'azul',n:'Azul',c:'#234a7d'},{k:'dourado',n:'Dourado',c:'#8a6a1f'},{k:'rosa',n:'Rosa',c:'#a5476b'},{k:'grafite',n:'Grafite',c:'#2a2c33'}];
+const BAR_KEY='gd-bar-cover',BAR_SRC='gd-bar-src',BAR_AR=6;
+const barColor=k=>(BAR_COLORS.find(x=>x.k===k)||BAR_COLORS[0]).c;
+function applyBar(){
+  const b=document.getElementById('banner');if(!b)return;
+  const bar=S.bar||{};b.style.setProperty('--bar',barColor(bar.color));
+  let cover=null;try{cover=bar.cover?localStorage.getItem(BAR_KEY):null}catch(e){}
+  if(cover&&/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(cover)){b.classList.add('has-cover');b.style.backgroundImage=`url("${cover}")`}
+  else{b.classList.remove('has-cover');b.style.backgroundImage=''}
+  const tc=document.querySelector('meta[name=theme-color]');if(tc)tc.content=barColor(bar.color);
+}
+let M=null,barReturn=null;
+const loadImg=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('Não consegui abrir a imagem.'));i.src=src});
+async function readBarFile(file){
+  if(!file.type.startsWith('image/'))throw new Error('Escolha uma imagem.');
+  if(file.size>25*1024*1024)throw new Error('Imagem grande demais (máximo 25 MB).');
+  let bmp;
+  try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}
+  catch(e){bmp=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('Não consegui abrir a imagem.'));i.src=URL.createObjectURL(file)})}
+  const w=bmp.width||bmp.naturalWidth,h=bmp.height||bmp.naturalHeight,k=Math.min(1,1800/Math.max(w,h));
+  const c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k);
+  c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  let q=.85,url='';for(let i=0;i<5;i++){url=c.toDataURL('image/jpeg',q);if(url.length<=330000)break;q-=.1}
+  if(bmp.close)bmp.close();return url;
+}
+function barModalHTML(){
+  const sw=BAR_COLORS.map(c=>`<button type="button" class="swc" style="--c:${c.c}" data-a="barcolor" data-v="${c.k}" aria-pressed="${M.color===c.k}" aria-label="${c.n}" title="${c.n}"></button>`).join('');
+  const cover=M.img?`<div class="stage" id="stage" tabindex="0" role="group" aria-label="Enquadramento da capa. Arraste a imagem. Setas movem, mais e menos ampliam."><img id="stimg" alt="" draggable="false"><div class="frame"><div class="phone"></div></div></div>
+      <p class="hint2">Moldura clara: a barra. Linhas tracejadas: o que aparece no celular.</p>
+      <div class="zoomrow">${ibtn('barzoom',ICON.minus,'Reduzir','data-v="-1"')}<input type="range" id="zoomr" min="100" max="500" value="${Math.round(M.z*100)}" aria-label="Ampliação da imagem">${ibtn('barzoom',ICON.plus,'Ampliar','data-v="1"')}</div>
+      <div class="row"><button class="btn sec sm" data-a="barpick">Trocar imagem</button><button class="btn sec sm" data-a="barnoimg">Remover imagem</button></div>`
+    :`<button class="btn sec sm" data-a="barpick">${ICON.photo}Escolher imagem</button>`;
+  return `<h3 id="bartitle">Personalizar a barra</h3>
+    <fieldset><legend>Cor</legend><div class="sws" role="group" aria-label="Cor da barra">${sw}</div></fieldset>
+    <fieldset><legend>Imagem de capa <span class="opt">(opcional)</span></legend>${cover}</fieldset>
+    <div class="row" style="justify-content:flex-end"><button class="btn sec" data-a="barcancel">Cancelar</button><button class="btn" data-a="barsave">Salvar</button></div>`;
+}
+function barLayout(){
+  const st=document.getElementById('stage'),im=document.getElementById('stimg');if(!st||!im||!M||!M.img)return;
+  const W=st.clientWidth,H=st.clientHeight,fw=W*.84,fh=fw/BAR_AR,w0=M.w0,h0=M.h0;
+  const smin=Math.max(fw/w0,fh/h0);M.z=Math.min(5,Math.max(1,M.z));
+  const sc=smin*M.z,mx=(w0*sc-fw)/2,my=(h0*sc-fh)/2;
+  let ox=Math.max(-mx,Math.min(mx,M.px*fw)),oy=Math.max(-my,Math.min(my,M.py*fw));
+  M.px=ox/fw;M.py=oy/fw;M.fw=fw;M.fh=fh;M.s=sc;
+  im.style.width=w0*sc+'px';im.style.height=h0*sc+'px';
+  im.style.left=(W/2+ox-w0*sc/2)+'px';im.style.top=(H/2+oy-h0*sc/2)+'px';
+  const zr=document.getElementById('zoomr');if(zr)zr.value=Math.round(M.z*100);
+}
+function barRender(){const box=document.querySelector('#barmodal .modal');if(!box)return;box.innerHTML=barModalHTML();if(M.img){const i=document.getElementById('stimg');i.src=M.src;barLayout()}}
+async function openBarEditor(trigger){
+  const bar=S.bar||{};barReturn=trigger||document.activeElement;
+  M={color:bar.color||'verde',img:null,src:null,w0:0,h0:0,z:1,px:0,py:0,fw:0,fh:0,s:1,touched:false,removed:false};
+  const host=document.createElement('div');host.className='modal-wrap';host.id='barmodal';
+  host.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-labelledby="bartitle"></div>';
+  document.body.appendChild(host);document.querySelector('header.top').inert=true;$app.inert=true;document.body.style.overflow='hidden';
+  host.addEventListener('mousedown',e=>{if(e.target===host)closeBar(false)});
+  if(bar.cover){
+    try{
+      const keep=localStorage.getItem(BAR_SRC),src=keep||localStorage.getItem(BAR_KEY);
+      if(src){M.src=src;M.img=await loadImg(src);M.w0=M.img.naturalWidth;M.h0=M.img.naturalHeight;
+        if(keep&&bar.t){M.z=bar.t.z||1;M.px=bar.t.px||0;M.py=bar.t.py||0}}
+    }catch(e){M.img=null}
+  }
+  barRender();const f=document.querySelector('#barmodal .swc[aria-pressed=true]')||document.querySelector('#barmodal button');f&&f.focus();
+}
+function closeBar(){
+  const h=document.getElementById('barmodal');if(h)h.remove();M=null;
+  document.querySelector('header.top').inert=false;$app.inert=false;document.body.style.overflow='';
+  applyBar();if(barReturn&&document.contains(barReturn))barReturn.focus();
+}
+function barExport(){
+  const sc=M.s,sw=M.fw/sc,sh=M.fh/sc,sx=M.w0/2-M.px*M.fw/sc-sw/2,sy=M.h0/2-M.py*M.fw/sc-sh/2;
+  const W=1800,H=Math.round(W/BAR_AR),c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,W,H);x.drawImage(M.img,sx,sy,sw,sh,0,0,W,H);
+  let q=.84,url='';for(let i=0;i<5;i++){url=c.toDataURL('image/jpeg',q);if(url.length<=280000)break;q-=.1}
+  return url;
+}
+function barSave(){
+  const old=S.bar||{},bar={color:M.color};
+  try{
+    if(M.removed||!M.img){localStorage.removeItem(BAR_KEY);localStorage.removeItem(BAR_SRC)}
+    else if(!M.touched&&old.cover){bar.cover=true;bar.t=old.t;bar.hasSrc=old.hasSrc}
+    else{
+      localStorage.setItem(BAR_KEY,barExport());
+      try{localStorage.setItem(BAR_SRC,M.src);bar.hasSrc=true}catch(e){localStorage.removeItem(BAR_SRC);bar.hasSrc=false}
+      bar.cover=true;bar.t={z:M.z,px:M.px,py:M.py};
+    }
+  }catch(e){alert('Não foi possível guardar a imagem neste aparelho (armazenamento cheio).');return}
+  S.bar=bar;save();closeBar();live('Barra atualizada.');
+}
+const barPtrs=new Map();let barLast=0;
+document.addEventListener('pointerdown',e=>{const st=e.target.closest&&e.target.closest('#stage');if(!st||!M)return;try{st.setPointerCapture(e.pointerId)}catch(_){}barPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});barLast=0});
+document.addEventListener('pointermove',e=>{
+  if(!M||!barPtrs.has(e.pointerId))return;const p=barPtrs.get(e.pointerId);
+  if(barPtrs.size===1){M.px+=(e.clientX-p.x)/M.fw;M.py+=(e.clientY-p.y)/M.fw;M.touched=true;barLayout()}
+  barPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(barPtrs.size===2){const [a,b]=[...barPtrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(barLast){M.z*=d/barLast;M.touched=true;barLayout()}barLast=d}
+});
+const barEnd=e=>{barPtrs.delete(e.pointerId);barLast=0};
+document.addEventListener('pointerup',barEnd);document.addEventListener('pointercancel',barEnd);
+document.addEventListener('wheel',e=>{const st=e.target.closest&&e.target.closest('#stage');if(!st||!M)return;e.preventDefault();M.z*=Math.exp(-e.deltaY*.0015);M.touched=true;barLayout()},{passive:false});
+document.addEventListener('input',e=>{if(e.target.id==='zoomr'&&M){M.z=e.target.value/100;M.touched=true;barLayout()}});
+document.addEventListener('keydown',e=>{
+  if(!M)return;
+  if(e.key==='Escape'){e.preventDefault();closeBar();return}
+  if(e.target.id!=='stage')return;
+  const st=12/(M.fw||1);let used=true;
+  if(e.key==='ArrowLeft')M.px-=st;else if(e.key==='ArrowRight')M.px+=st;else if(e.key==='ArrowUp')M.py-=st;else if(e.key==='ArrowDown')M.py+=st;
+  else if(e.key==='+'||e.key==='=')M.z*=1.08;else if(e.key==='-')M.z/=1.08;else used=false;
+  if(used){e.preventDefault();M.touched=true;barLayout()}
+});
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='barin')return;
+  const f=e.target.files[0];e.target.value='';if(!f||!M)return;
+  try{const src=await readBarFile(f),img=await loadImg(src);
+    M.src=src;M.img=img;M.w0=img.naturalWidth;M.h0=img.naturalHeight;M.z=1;M.px=0;M.py=0;M.touched=true;M.removed=false;barRender()}
+  catch(err){alert(err.message||'Não consegui usar essa imagem.')}
+});
 
 /* ---------- Ações ---------- */
 function readFields(root){
@@ -902,7 +1062,7 @@ async function exportData(){
   let photos=[];
   try{photos=await Promise.all((await allPhotos()).map(async p=>({id:p.id,pid:p.pid,date:p.date,w:p.w,h:p.h,ts:p.ts,data:await blobToDataURL(p.blob)})))}catch(e){}
   const blob=new Blob([JSON.stringify({...S,photos},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`meu-dia-em-cards-${todayIso()}.json`;a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gracas-do-dia-${todayIso()}.json`;a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function doImport(e){
@@ -963,6 +1123,13 @@ document.addEventListener('click',e=>{
       S.profiles=S.profiles.filter(x=>x.id!==p.id);delete S.days[p.id];Object.keys(S.dirty).forEach(k=>{if(k.includes(p.id))delete S.dirty[k]});if(p.synced)S.dirty['pd:'+p.id]=1;
       if(S.active===p.id)S.active=S.profiles[0].id;save();scheduleSync();delPhotosOf(p.id).catch(()=>{});render(true);break}
     case 'export':exportData();break;
+    case 'baredit':openBarEditor(el);break;
+    case 'barcolor':if(M){M.color=v;document.querySelectorAll('#barmodal .swc').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===v)));document.getElementById('banner').style.setProperty('--bar',barColor(v))}break;
+    case 'barzoom':if(M){M.z*=v>0?1.15:1/1.15;M.touched=true;barLayout()}break;
+    case 'barpick':document.getElementById('barin').click();break;
+    case 'barnoimg':if(M){M.img=null;M.src=null;M.removed=true;M.touched=true;barRender()}break;
+    case 'barcancel':closeBar();break;
+    case 'barsave':barSave();break;
     case 'gsignin':cloudSignIn();break;
     case 'gsignout':V.acct=false;cloudSignOut();break;
     case 'syncnow':syncNow();break;
@@ -991,6 +1158,8 @@ document.addEventListener('keydown',e=>{
   if(fl){const b=fl.querySelector('.back [data-a=flip]');b&&toggleFlip(b)}
 });
 render();
+applyBar();
+document.getElementById('baredit').innerHTML=ICON.image;
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>

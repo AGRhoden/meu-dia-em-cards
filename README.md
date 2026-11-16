@@ -1,4 +1,4 @@
-# Meu Dia em Cards
+# Graças do Dia
 
 Diário simples: cinco cards por dia (uma coisa boa, uma descoberta, uma ação muito boa, um acontecimento relevante e um card livre), calendário, diário contínuo com fotos e compartilhamento com a família.
 
