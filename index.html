@@ -156,6 +156,25 @@ input.t:focus{border-bottom-color:var(--ink)}
 .note{border:1px dashed var(--line-2);border-radius:16px;padding:14px 18px;color:var(--muted);margin-top:30px;font-size:.92rem}
 h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6px}
 
+/* avatar e menu da conta */
+.av{--rc:var(--line);width:26px;height:26px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex:none;box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--rc);overflow:hidden}
+.av.xs{width:18px;height:18px;font-size:.62rem;box-shadow:0 0 0 1.5px var(--surface),0 0 0 2.5px var(--rc)}
+.av.sm{width:24px;height:24px;font-size:.72rem}
+.av.lg{width:52px;height:52px;font-size:1.3rem}
+.avbtn{position:relative;border:0;background:none;padding:4px;cursor:pointer;border-radius:50%;display:inline-flex}
+.avbtn .avedit{position:absolute;right:-2px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+.avbtn .avedit svg{width:12px;height:12px}
+.avbtn:hover .avedit{opacity:.85}
+.menuwrap{position:relative;display:inline-block}
+.menu{position:absolute;right:0;top:calc(100% + 8px);z-index:20;min-width:220px;background:var(--surface);border:1px solid var(--line-2);border-radius:16px;padding:6px;box-shadow:0 12px 32px -8px rgba(0,0,0,.28)}
+.menu button{width:100%;border:0;background:none;text-align:left;padding:0 12px;min-height:42px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:.95rem}
+.menu button:hover{background:var(--wash)}
+.menu small{display:block;padding:8px 12px 4px;color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis}
+.acct-in{color:var(--ink);font-weight:600;border:1px solid var(--line-2);border-radius:999px}
+.sd-who{display:flex;align-items:center;gap:8px}
+.dmonth{display:none}
+@media print{.dmonth{display:block}}
+
 /* nuvem e família */
 .famrow{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
 .famrow input{flex:1;min-width:180px;border:1px solid var(--line-2);background:var(--surface);border-radius:12px;padding:0 14px;min-height:40px}
@@ -207,7 +226,8 @@ h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6p
     <div class="tools">
       <button class="ghost" data-a="font" data-v="-1" aria-label="Diminuir letras" title="Diminuir letras" style="font-size:.8rem;font-weight:600">A−</button>
       <button class="ghost" data-a="font" data-v="1" aria-label="Aumentar letras" title="Aumentar letras" style="font-size:1rem;font-weight:600">A+</button>
-      <button class="ghost person-chip" data-a="tab" data-v="pessoas" id="whoami" aria-label="Trocar de pessoa"></button>
+      <button class="ghost person-chip" data-a="tab" data-v="pessoas" id="whoami" aria-label="Pessoa atual (abrir Pessoas)"></button>
+      <span id="acctwrap"></span>
     </div>
   </div>
   <nav class="tabs" aria-label="Seções">
@@ -219,6 +239,7 @@ h2.sec-t{font-size:1.2rem;font-weight:650;letter-spacing:-.02em;margin:44px 0 6p
 </header>
 <main id="app" tabindex="-1"></main>
 <div class="sr" role="status" aria-live="polite" id="live"></div>
+<input type="file" id="avin" accept="image/*" class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" id="phin" accept="image/*" multiple class="sr" tabindex="-1" aria-hidden="true">
 
 <script src="vendor/supabase.js"></script>
@@ -273,6 +294,27 @@ const fmt=iso=>{const [y,m,d]=iso.split('-');return `${d}/${m}/${y}`};
 const parse=iso=>{const [y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d)};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+const okAv=v=>typeof v==='string'&&v.length<=30000&&/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(v);
+const inkOn=c=>{const n=parseInt(String(c).slice(1),16),r=n>>16,g=(n>>8)&255,b=n&255;return (r*299+g*587+b*114)/1000>150?'#111':'#fff'};
+const avatar=(p,cls='')=>okAv(p.avatar)
+  ?`<img class="av ${cls}" src="${p.avatar}" alt="" style="--rc:${p.color}">`
+  :`<span class="av ${cls}" style="--rc:${p.color};background:${p.color};color:${inkOn(p.color)}" aria-hidden="true">${esc((p.name||'?').trim().charAt(0).toUpperCase()||'?')}</span>`;
+async function makeAvatar(file){
+  if(!file.type.startsWith('image/'))throw new Error('Escolha uma imagem.');
+  if(file.size>25*1024*1024)throw new Error('Imagem grande demais (máximo 25 MB).');
+  let bmp;
+  try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}
+  catch(e){bmp=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('Não consegui abrir a imagem.'));i.src=URL.createObjectURL(file)})}
+  const w=bmp.width||bmp.naturalWidth,h=bmp.height||bmp.naturalHeight,m=Math.min(w,h);
+  const c=document.createElement('canvas');c.width=c.height=160;
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,160,160);
+  x.drawImage(bmp,(w-m)/2,(h-m)/2,m,m,0,0,160,160);
+  let q=.85,url='';
+  for(let i=0;i<5;i++){url=c.toDataURL('image/jpeg',q);if(url.length<=24000)break;q-=.12}
+  if(bmp.close)bmp.close();
+  if(!okAv(url))throw new Error('Não consegui reduzir a imagem.');
+  return url;
+}
 function load(){
   try{const s=JSON.parse(localStorage.getItem(STORE));if(s&&Array.isArray(s.profiles)&&s.profiles.length)return s}catch(e){}
   const id=uid();
@@ -349,11 +391,11 @@ async function pushDirty(){
     const t=k.slice(0,k.indexOf(':')),rest=k.slice(k.indexOf(':')+1);
     if(t==='p'){
       const p=S.profiles.find(x=>x.id===rest);
-      if(p&&!p.remote){const {error}=await sb.from('people').upsert({id:p.id,owner_id:C.user.id,name:p.name.slice(0,60),color:p.color,family_id:C.family?C.family.id:null});if(error)throw error;p.synced=true;delete p.blank}
+      if(p&&!p.remote){const {error}=await sb.from('people').upsert({id:p.id,owner_id:C.user.id,name:p.name.slice(0,60),color:p.color,avatar:okAv(p.avatar)?p.avatar:null,family_id:C.family?C.family.id:null});if(error)throw error;p.synced=true;delete p.blank}
     }else if(t==='e'){
       const [pid,date]=rest.split('|'),p=S.profiles.find(x=>x.id===pid),en=entryOf(pid,date);
       if(p&&!p.remote){
-        if(!p.synced){const pr=await sb.from('people').upsert({id:p.id,owner_id:C.user.id,name:p.name.slice(0,60),color:p.color,family_id:C.family?C.family.id:null});if(pr.error)throw pr.error;p.synced=true;delete p.blank;delete S.dirty['p:'+p.id]}
+        if(!p.synced){const pr=await sb.from('people').upsert({id:p.id,owner_id:C.user.id,name:p.name.slice(0,60),color:p.color,avatar:okAv(p.avatar)?p.avatar:null,family_id:C.family?C.family.id:null});if(pr.error)throw pr.error;p.synced=true;delete p.blank;delete S.dirty['p:'+p.id]}
         if(hasContent(en)){
           const c=en.custom||{};
           const {error}=await sb.from('entries').upsert({person_id:pid,date,bom:en.bom||'',descoberta:en.descoberta||'',acao:en.acao||'',acontecimento:en.acontecimento||'',custom_titulo:c.titulo||'',custom_texto:c.texto||''});
@@ -383,7 +425,7 @@ async function pushDirty(){
 
 async function pullAll(){
   const uid=C.user.id;
-  const pr=await sb.from('people').select('id,owner_id,name,color');if(pr.error)throw pr.error;
+  const pr=await sb.from('people').select('id,owner_id,name,color,avatar');if(pr.error)throw pr.error;
   const remoteIds=new Set(pr.data.map(r=>r.id));
   const hasMine=pr.data.some(r=>r.owner_id===uid);
   for(const r of pr.data){
@@ -391,6 +433,7 @@ async function pullAll(){
     if(!p){p={id:r.id,name:r.name,color:r.color};S.profiles.push(p)}
     else if(!S.dirty['p:'+r.id]){p.name=r.name;p.color=r.color}
     p.remote=r.owner_id!==uid;p.synced=true;delete p.blank;
+    if(!S.dirty['p:'+r.id]){if(okAv(r.avatar))p.avatar=r.avatar;else delete p.avatar}
   }
   // conta nova (sem pessoas na nuvem): sobe a pessoa inicial
   if(!hasMine)S.profiles.forEach(p=>{if(!p.remote&&!p.synced)S.dirty['p:'+p.id]=1});
@@ -497,7 +540,7 @@ if(sb){
 
 /* ---------- Estado de tela ---------- */
 const now=new Date();
-const V={tab:'hoje',date:todayIso(),scope:'eu',dwho:null,photoTarget:null,
+const V={acct:false,dmonth:null,dmonths:[],avTarget:null,tab:'hoje',date:todayIso(),scope:'eu',dwho:null,photoTarget:null,
   cal:{lvl:'month',y:now.getFullYear(),m:now.getMonth(),d:null},saving:false,msg:''};
 const $app=document.getElementById('app');
 const live=t=>{const l=document.getElementById('live');l.textContent='';setTimeout(()=>l.textContent=t,30)};
@@ -578,7 +621,7 @@ function scopeSeg(){
 }
 function legend(){
   if(V.scope!=='familia')return '';
-  return `<div class="legend">${S.profiles.map(p=>`<span><i class="dot" style="background:${p.color}"></i>${esc(p.name)}</span>`).join('')}</div>`;
+  return `<div class="legend">${S.profiles.map(p=>`<span>${avatar(p,'xs')}${esc(p.name)}</span>`).join('')}</div>`;
 }
 function viewCal(){
   const c=V.cal,t=todayIso();let h='';
@@ -639,8 +682,9 @@ function viewPessoas(){
   let h=`<h2 class="title">Pessoas</h2><p class="sub">Cada pessoa tem o próprio calendário. Quem usa o mesmo aparelho escolhe aqui quem está escrevendo agora.</p><div class="plist">`;
   S.profiles.forEach(p=>{
     const on=p.id===S.active;
-    if(p.remote){h+=`<div class="pitem"><i class="dot" style="background:${p.color}"></i><span class="pname">${esc(p.name)}</span><span class="badge" style="color:var(--muted)">da família</span></div>`;return}
-    h+=`<div class="pitem"><i class="dot" style="background:${p.color}"></i>
+    if(p.remote){h+=`<div class="pitem">${avatar(p,'lg')}<span class="pname">${esc(p.name)}</span><span class="badge" style="color:var(--muted)">da família</span></div>`;return}
+    h+=`<div class="pitem"><button class="avbtn" data-a="avpick" data-pid="${p.id}" aria-label="Trocar a foto de ${esc(p.name)}" title="Trocar a foto">${avatar(p,'lg')}<span class="avedit">${ICON.photo}</span></button>
+      ${p.avatar?ibtn('avdel',ICON.x,'Remover a foto',`data-pid="${p.id}"`):''}
       <label class="sr" for="n-${p.id}">Nome</label><input type="text" id="n-${p.id}" value="${esc(p.name)}" maxlength="30" data-a="rename" data-pid="${p.id}">
       ${on?`<span class="badge">${ICON.check}Escrevendo agora</span>`:`<button class="btn sec sm" data-a="setme" data-pid="${p.id}">Usar esta pessoa</button>`}
       ${S.profiles.filter(x=>!x.remote).length>1?ibtn('delp',ICON.trash,`Remover ${p.name}`,`data-pid="${p.id}"`):''}</div>`;
@@ -677,8 +721,17 @@ function cloudSection(){
   return h;
 }
 
+function renderAccount(){
+  const w=document.getElementById('acctwrap');if(!w)return;
+  if(!sb){w.innerHTML='';return}
+  if(!C.user){w.innerHTML=`<button class="ghost acct-in" data-a="gsignin" title="Entrar com Google para sincronizar e compartilhar">Entrar</button>`;return}
+  const u=C.user,m=u.user_metadata||{},nm=m.name||m.full_name||u.email||'Conta';
+  w.innerHTML=`<span class="menuwrap"><button class="ghost" data-a="acctmenu" aria-haspopup="menu" aria-expanded="${!!V.acct}" aria-label="Conta ${esc(u.email||nm)}" title="${esc(u.email||nm)}"><span class="av sm" style="--rc:var(--ink);background:var(--ink);color:var(--bg)" aria-hidden="true">${esc(String(nm).trim().charAt(0).toUpperCase()||'?')}</span></button>
+    ${V.acct?`<div class="menu" role="menu"><small>${esc(u.email||'Conta Google')}</small><button role="menuitem" data-a="gsignout">Sair da conta</button></div>`:''}</span>`;
+}
 function render(keepFocus){
-  document.getElementById('whoami').innerHTML=`<i class="dot" style="background:${me().color}"></i>${esc(me().name)}`;
+  document.getElementById('whoami').innerHTML=`${avatar(me(),'sm')}<span>${esc(me().name)}</span>`;
+  renderAccount();
   const away=V.tab==='hoje'&&V.date!==todayIso();
   document.querySelectorAll('nav.tabs button').forEach(b=>{
     const cur=b.dataset.v===V.tab&&!(b.dataset.v==='hoje'&&away);
@@ -711,8 +764,8 @@ const topicsOf=en=>{
 function viewDiario(){
   if(V.dwho!=='family'&&!S.profiles.some(p=>p.id===V.dwho))V.dwho=S.active;
   const seg=S.profiles.length>1?`<div class="seg" role="group" aria-label="Diário de">${S.profiles.map(p=>`<button data-a="dwho" data-v="${p.id}" aria-pressed="${V.dwho===p.id}">${esc(p.name)}</button>`).join('')}<button data-a="dwho" data-v="family" aria-pressed="${V.dwho==='family'}">Família</button></div>`:'';
-  return `<div class="dbar"><h2 class="title">Diário</h2><div class="row">${seg}<button class="linkbtn" data-a="dlast" id="dlast" hidden>${ICON.down}Mais recente</button>${ibtn('dprint',ICON.print,'Imprimir ou salvar em PDF','','lg')}</div></div>
-    <p class="sub" id="dsub" style="margin:4px 0 0"></p><div class="dnote" id="dnote" role="status" aria-live="polite"></div><div id="diary" aria-busy="true"></div>`;
+  return `<div class="dbar"><h2 class="title">Diário</h2><div class="row">${seg}${ibtn('dprint',ICON.print,'Imprimir ou salvar em PDF','','lg')}</div></div>
+    <p class="sub" id="dsub" style="margin:4px 0 0"></p><div id="dnav"></div><div class="dnote" id="dnote" role="status" aria-live="polite"></div><div id="diary" aria-busy="true"></div>`;
 }
 const dnote=t=>{const n=document.getElementById('dnote');if(n)n.textContent=t};
 async function fillDiary(note){
@@ -729,7 +782,11 @@ async function fillDiary(note){
     Object.keys(S.days[p.id]||{}).forEach(d=>{if(hasContent(entryOf(p.id,d)))set.add(d)});
     Object.keys(photos[p.id]).forEach(d=>set.add(d));
   });
-  const dates=[...set].sort();
+  const allDates=[...set].sort();
+  const months=[...new Set(allDates.map(d=>d.slice(0,7)))];
+  V.dmonths=months;
+  if(!months.includes(V.dmonth))V.dmonth=months[months.length-1]||null;
+  const dates=allDates.filter(d=>V.dmonth&&d.startsWith(V.dmonth));
   const target=fam?me():people[0];
   let html='',last='';
   dates.forEach(iso=>{
@@ -743,7 +800,7 @@ async function fillDiary(note){
     people.forEach(p=>{
       const tp=topicsOf(entryOf(p.id,iso)),ph=(photos[p.id]||{})[iso]||[];
       if(!tp.length&&!ph.length)return;
-      if(fam)html+=`<div class="sd-who">${esc(p.name)}</div>`;
+      if(fam)html+=`<div class="sd-who">${avatar(p,'xs')}${esc(p.name)}</div>`;
       if(tp.length)html+=`<ul class="topics">${tp.map(x=>`<li>${x.lead?`<b>${esc(x.lead)}.</b> `:''}${esc(x.t)}</li>`).join('')}</ul>`;
       if(ph.length){
         ph.sort((a,b)=>a.ts-b.ts);
@@ -754,10 +811,16 @@ async function fillDiary(note){
     html+='</section>';
   });
   box.removeAttribute('aria-busy');
-  box.innerHTML=dates.length?`<article class="sheet">${html}<div class="sd-foot">Meu dia em cards</div></article>`
+  box.innerHTML=allDates.length?`<article class="sheet">${html}<div class="sd-foot">Meu dia em cards</div></article>`
     :`<article class="sheet"><p class="sd-empty">O diário começa quando você guardar o primeiro dia.</p></article>`;
-  const sub=document.getElementById('dsub');if(sub)sub.textContent=dates.length?`${dates.length} ${dates.length===1?'dia':'dias'} · atualizado automaticamente a cada novo registro`:'';
-  const dl=document.getElementById('dlast');if(dl)dl.hidden=dates.length<8;
+  const sub=document.getElementById('dsub');if(sub)sub.textContent=allDates.length?`${allDates.length} ${allDates.length===1?'dia':'dias'} · atualizado automaticamente a cada novo registro`:'';
+  const nav=document.getElementById('dnav');
+  if(nav){
+    const idx=months.indexOf(V.dmonth);
+    nav.innerHTML=months.length?`<div class="heading" style="margin:20px 0 0">${ibtn('dmo',ICON.left,'Mês anterior','data-v="-1"'+(idx<=0?' disabled':''),'lg')}
+      <h3>${MESES[+V.dmonth.slice(5)-1]} ${V.dmonth.slice(0,4)}<small>${idx+1} de ${months.length} ${months.length===1?'mês':'meses'} com registros</small></h3>
+      ${ibtn('dmo',ICON.right,'Próximo mês','data-v="1"'+(idx>=months.length-1?' disabled':''),'lg')}</div>`:'';
+  }
   if(note||err)dnote(note||err);
 }
 async function addPhotos(files){
@@ -868,10 +931,15 @@ function moveDay(delta){
 }
 
 document.addEventListener('click',e=>{
+  if(V.acct&&!e.target.closest('.menuwrap')){V.acct=false;renderAccount()}
   const el=e.target.closest('[data-a]');if(!el||el.tagName==='INPUT')return;
   const a=el.dataset.a,v=el.dataset.v,c=V.cal;
   switch(a){
-    case 'tab':if(v==='hoje')goToday();else{V.tab=v;render()}break;
+    case 'tab':if(v==='hoje')goToday();else{if(v==='diario')V.dmonth=null;V.tab=v;render()}break;
+    case 'acctmenu':V.acct=!V.acct;renderAccount();{const b=document.querySelector('[data-a=acctmenu]');b&&b.focus()}break;
+    case 'avpick':V.avTarget=el.dataset.pid;document.getElementById('avin').click();break;
+    case 'avdel':{const pp=S.profiles.find(x=>x.id===el.dataset.pid);if(pp&&!pp.remote){delete pp.avatar;S.dirty['p:'+pp.id]=1;save();scheduleSync();render(true);live('Foto removida.')}break}
+    case 'dmo':{const i=V.dmonths.indexOf(V.dmonth)+ +v;if(V.dmonths[i]){V.dmonth=V.dmonths[i];fillDiary();window.scrollTo(0,0)}break}
     case 'font':S.font=Math.min(1.5,Math.max(.85,+((S.font||1)+v*.1).toFixed(2)));save();render(true);break;
     case 'guardar':guardar();break;
     case 'flip':toggleFlip(el);break;
@@ -896,7 +964,7 @@ document.addEventListener('click',e=>{
       if(S.active===p.id)S.active=S.profiles[0].id;save();scheduleSync();delPhotosOf(p.id).catch(()=>{});render(true);break}
     case 'export':exportData();break;
     case 'gsignin':cloudSignIn();break;
-    case 'gsignout':cloudSignOut();break;
+    case 'gsignout':V.acct=false;cloudSignOut();break;
     case 'syncnow':syncNow();break;
     case 'famcreate':{const n=(document.getElementById('famname').value||'').trim();if(!n){C.err=true;C.msg='Dê um nome para a família.';cloudLine();break}famAct(()=>sb.rpc('create_family',{fname:n}),'Família criada. Compartilhe o código de convite.');break}
     case 'famjoin':{const c=(document.getElementById('famcode').value||'').trim();if(!c){C.err=true;C.msg='Digite o código de convite.';cloudLine();break}famAct(()=>sb.rpc('join_family',{fcode:c}),'Você entrou na família.');break}
@@ -904,18 +972,21 @@ document.addEventListener('click',e=>{
     case 'famcopy':navigator.clipboard&&C.family&&navigator.clipboard.writeText(C.family.code).then(()=>{C.err=false;C.msg='Código copiado.';cloudLine()});break;
     case 'dwho':V.dwho=v;render(true);break;
     case 'dprint':window.print();break;
-    case 'dlast':{const l=document.querySelectorAll('.dday');l.length&&l[l.length-1].scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});break}
     case 'phadd':V.photoTarget={date:el.dataset.date,pid:el.dataset.pid};document.getElementById('phin').click();break;
     case 'phdel':if(confirm('Remover esta foto do diário?')){const id=el.dataset.id,pid=el.dataset.pid;delPhoto(id).then(()=>{if(S.dirty['ph:'+id])delete S.dirty['ph:'+id];else S.dirty['phd:'+pid+'|'+id]=1;save();scheduleSync();return fillDiary('Foto removida.')}).catch(()=>{})}break;
   }
 });
 document.addEventListener('change',e=>{
   const el=e.target;
+  if(el.id==='avin'){const f=el.files[0];el.value='';if(!f)return;
+    const pp=S.profiles.find(x=>x.id===V.avTarget);if(!pp||pp.remote)return;
+    makeAvatar(f).then(url=>{pp.avatar=url;S.dirty['p:'+pp.id]=1;save();scheduleSync();render(true);live('Foto atualizada.')}).catch(err=>{alert(err.message||'Não consegui usar essa imagem.')});return}
   if(el.id==='phin'){const files=[...el.files];el.value='';addPhotos(files);return}
   if(el.dataset.a==='rename'){const p=S.profiles.find(x=>x.id===el.dataset.pid);if(p.remote)return;p.name=el.value.trim()||p.name;S.dirty['p:'+p.id]=1;save();scheduleSync();render(true)}
 });
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
+  if(V.acct){V.acct=false;renderAccount();return}
   const fl=e.target.closest&&e.target.closest('.flip.flipped');
   if(fl){const b=fl.querySelector('.back [data-a=flip]');b&&toggleFlip(b)}
 });
