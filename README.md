@@ -10,4 +10,4 @@ App estático (HTML, CSS e JavaScript, sem build). Os dados ficam no aparelho e,
 - **1.1** — os dias dos outros aparecem só em "Família"; o card livre pode ser publicado na família ou guardado só para quem escreveu; texto de boas-vindas.
 - **1.2** — proteção das memórias: rascunho do dia não se perde ao trocar de aba ou fechar o app; guardar nunca apaga texto vindo de outro aparelho; edição feita durante o envio continua pendente; um item com erro não trava a sincronização; "Hoje" acompanha a virada do dia; backup mais leve (só as fotos da própria conta).
 - **1.3** — painel "Uso do app" para quem mantém o aplicativo: contas, datas e números de uso, nunca os textos; aviso de conta nova e de primeiro card.
-- **1.4** — títulos dos cards em tom dourado.
+- **1.3.1** — títulos dos cards em tom dourado.
