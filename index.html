@@ -12,7 +12,7 @@
 <style>
 :root{
   --bg:#f6f5f1; --surface:#ffffff; --ink:#131316; --muted:#66666e; --line:#e4e2dc; --line-2:#cfccc4; --wash:#eeece6;
-  --accent:#131316; --accent-ink:#ffffff; --ok:#2a8a5c; --focus:#3b47d6;
+  --accent:#131316; --accent-ink:#ffffff; --ok:#2a8a5c; --focus:#3b47d6; --gold:#b07d12;
   --fs:1;
   --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
   --serif:ui-serif,"Iowan Old Style","Palatino Linotype",Georgia,serif;
@@ -21,7 +21,7 @@
 @media (prefers-color-scheme: dark){
   :root{
     --bg:#0d0d0f; --surface:#17171a; --ink:#f3f3f0; --muted:#9d9da6; --line:#26262b; --line-2:#3b3b43; --wash:#1f1f24;
-    --accent:#f3f3f0; --accent-ink:#0d0d0f; --ok:#4cc58c; --focus:#8f9bff;
+    --accent:#f3f3f0; --accent-ink:#0d0d0f; --ok:#4cc58c; --focus:#8f9bff; --gold:#e6b64a;
   }
 }
 *{box-sizing:border-box}
@@ -111,6 +111,7 @@ h2.title{font-size:clamp(1.6rem,3.6vw,2.1rem);font-weight:650;letter-spacing:-.0
 .back{transform:rotateY(180deg);background:color-mix(in srgb,var(--ink) 5%,var(--surface))}
 .card h3,.face h3{margin:0;display:flex;gap:9px;align-items:center;min-width:0;height:24px}
 .kic{display:inline-flex;color:var(--ink);flex:none}
+.card h3 .ttl,.face h3 .ttl{color:var(--gold)}
 .ttl,input.t{font-family:var(--cond);font-stretch:condensed;font-variant-caps:all-small-caps;font-weight:600;font-size:1.05rem;letter-spacing:.04em;line-height:1.2}
 .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .ruled{width:100%;flex:1;min-height:120px;border:0;resize:none;background:transparent;font-size:1rem;line-height:1.6;padding:0;outline:none}

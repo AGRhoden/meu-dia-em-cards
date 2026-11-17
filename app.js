@@ -119,7 +119,7 @@ if(!S.bk)S.bk={auto:true,week:'',last:''};
 const save=()=>{try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){alert('Não foi possível salvar neste aparelho (armazenamento cheio ou bloqueado).')}};
 const me=()=>S.profiles.find(p=>p.id===S.active)||S.profiles.find(p=>!p.remote)||S.profiles[0];
 const entryOf=(pid,iso)=>(S.days[pid]||{})[iso];
-const VERSION='1.3';
+const VERSION='1.4';
 const stamp=()=>Date.now()+Math.random();
 const hasContent=en=>!!en&&(['bom','descoberta','acao','acontecimento'].some(k=>(en[k]||'').trim())||((en.custom&&(en.custom.texto||'').trim())));
 
